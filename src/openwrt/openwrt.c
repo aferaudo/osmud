@@ -233,14 +233,18 @@ int verifyCmsSignature(char *mudFileLocation, char *mudSigFileLocation)
 	/* openssl cms -verify -in mudfile.p7s -inform DER -content badtxt */
 
 	char execBuf[BUFSIZE];
+	char myMessage[150];
 	int retval, sigStatus;
+
+	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, "This is my version!");
 
 	snprintf(execBuf, BUFSIZE, "openssl cms -verify -in %s -inform DER -content %s -purpose any", mudSigFileLocation, mudFileLocation);
 	execBuf[BUFSIZE-1] = '\0';
 
 	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, execBuf);
 	retval = system(execBuf);
-
+	snprintf(myMessage, 150, "MY VERSION: The result of the previous command is %d", retval);
+	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, myMessage);
 	/* A non-zero return value indicates the signature on the mud file was invalid */
 	if (retval) {
 		logOmsGeneralMessage(OMS_ERROR, OMS_SUBSYS_DEVICE_INTERFACE, execBuf);

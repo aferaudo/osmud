@@ -258,6 +258,7 @@ int executeMudWithDhcpContext(DhcpEvent *dhcpEvent)
 void executeNewDhcpAction(DhcpEvent *dhcpEvent)
 {
 	char logMsgBuf[4096];
+	char myMessage[150];
 	buildDhcpEventContext(logMsgBuf, "NEW", dhcpEvent);
 	logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, logMsgBuf);
 
@@ -276,14 +277,16 @@ void executeNewDhcpAction(DhcpEvent *dhcpEvent)
 			 * is provided. This feature will be removed from a future release and is only provided now
 			 * until certificates compatible with OPENSSL CMS VERIFY commands are in ready use.
 			 */
-			if ((!getOpenMudFile(dhcpEvent->mudSigURL, dhcpEvent->mudSigFileStorageLocation))
-				|| (noFailOnMudValidation))
+			if (!getOpenMudFile(dhcpEvent->mudSigURL, dhcpEvent->mudSigFileStorageLocation))
 			{
 
 				logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_MUD_FILE, "IN ****NEW**** MUD and SIG FILE RETRIEVED!!!");
+				/************MY VERSION**************/
+				int is_valid = validateMudFileWithSig(dhcpEvent);
+				snprintf(myMessage, 150, "MY VERSION: The result of the previous command is %d", is_valid);
+				logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, myMessage);
 
-				if ((validateMudFileWithSig(dhcpEvent) == VALID_MUD_FILE_SIG)
-					|| (noFailOnMudValidation))
+				if ( is_valid == VALID_MUD_FILE_SIG)
 				{
 					/*
 					 * All files downloaded and signature valid.
