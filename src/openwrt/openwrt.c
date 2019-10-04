@@ -243,7 +243,7 @@ int verifyCmsSignature(char *mudFileLocation, char *mudSigFileLocation)
 
 	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, execBuf);
 	retval = system(execBuf);
-	snprintf(myMessage, 150, "MY VERSION: The result of the previous command is %d", retval);
+	snprintf(myMessage, 150, "MY VERSION: The result of the openssl command is %d", retval);
 	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, myMessage);
 	/* A non-zero return value indicates the signature on the mud file was invalid */
 	if (retval) {

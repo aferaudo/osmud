@@ -283,11 +283,12 @@ void executeNewDhcpAction(DhcpEvent *dhcpEvent)
 				logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_MUD_FILE, "IN ****NEW**** MUD and SIG FILE RETRIEVED!!!");
 				/************MY VERSION**************/
 				int is_valid = validateMudFileWithSig(dhcpEvent);
-				snprintf(myMessage, 150, "MY VERSION: The result of the previous command is %d", is_valid);
+				snprintf(myMessage, 150, "MY VERSION: The result of validateMudFileWithSig is %d", is_valid);
 				logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, myMessage);
-
-				if ( is_valid == VALID_MUD_FILE_SIG)
-				{
+				// TODO Delete the validation of the signature
+				//if ( is_valid == VALID_MUD_FILE_SIG)
+				//{
+					logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, "MY VERSION: This testi is without signature!");
 					/*
 					 * All files downloaded and signature valid.
 					 * CALL INTERFACE TO CARRY OUT MUD ACTION HERE
@@ -295,11 +296,11 @@ void executeNewDhcpAction(DhcpEvent *dhcpEvent)
 					executeMudWithDhcpContext(dhcpEvent);
 					installMudDbDeviceEntry(mudFileDataDirectory, dhcpEvent->ipAddress, dhcpEvent->macAddress,
 							dhcpEvent->mudFileURL, dhcpEvent->mudFileStorageLocation, dhcpEvent->hostName);
-				}
-				else
+				//}
+				/*else
 				{
 					logOmsGeneralMessage(OMS_ERROR, OMS_SUBSYS_MUD_FILE, "ERROR: ****NEW**** BAD SIGNATURE - FAILED VALIDATION!!!");
-				}
+				}*/
 			}
 			else
 			{
