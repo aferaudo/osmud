@@ -267,7 +267,10 @@ void executeNewDhcpAction(DhcpEvent *dhcpEvent)
 		dhcpEvent->mudSigURL = createSigUrlFromMudUrl(dhcpEvent->mudFileURL);
 		dhcpEvent->mudFileStorageLocation = createStorageLocation(dhcpEvent->mudFileURL);
 		dhcpEvent->mudSigFileStorageLocation = createStorageLocation(dhcpEvent->mudSigURL);
-
+		snprintf(myMessage, 150, "MY VERSION: The result of mudURL is %s", dhcpEvent->mudFileURL);
+		logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, myMessage);
+		snprintf(myMessage, 150, "MY VERSION: The result of sigURL is %s", dhcpEvent->mudSigURL);
+		logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, myMessage);
 		/* We are processing a MUD aware device. Go to the MUD file server and get the usage description */
 		/* non-zero return code indicates error during communications */
 		/* Mud files and signature files are stored in their computed storage locations for future reference */
@@ -285,7 +288,6 @@ void executeNewDhcpAction(DhcpEvent *dhcpEvent)
 				int is_valid = validateMudFileWithSig(dhcpEvent);
 				snprintf(myMessage, 150, "MY VERSION: The result of validateMudFileWithSig is %d", is_valid);
 				logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, myMessage);
-				// TODO Delete the validation of the signature
 				//if ( is_valid == VALID_MUD_FILE_SIG)
 				//{
 					logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, "MY VERSION: This testi is without signature!");
