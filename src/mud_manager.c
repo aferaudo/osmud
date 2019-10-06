@@ -177,6 +177,7 @@ int executeMudWithDhcpContext(DhcpEvent *dhcpEvent)
 	int i;
 	int retval = 0; // non-zero indicates errors
 	int actionResult = 0;
+	char mymessage[100];
 
 	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, "IN ****NEW**** executeMudWithDhcpContext()");
 
@@ -186,6 +187,11 @@ int executeMudWithDhcpContext(DhcpEvent *dhcpEvent)
 			dhcpEvent->mudFileURL, dhcpEvent->mudFileStorageLocation, dhcpEvent->hostName);
 
 	MudFileInfo *mudFile = parseMudFile(dhcpEvent->mudFileStorageLocation);
+
+	/*Adding some prints here --> MY VERSION*/
+	snprintf(mymessage, 100, "MY VERSION: description mudfile is %s", mudFile->description);
+	logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_DEVICE_INTERFACE, mymessage);
+	
 
 	// Loop over mud file and carry out actions
 	if (mudFile) {
@@ -268,9 +274,9 @@ void executeNewDhcpAction(DhcpEvent *dhcpEvent)
 		dhcpEvent->mudFileStorageLocation = createStorageLocation(dhcpEvent->mudFileURL);
 		dhcpEvent->mudSigFileStorageLocation = createStorageLocation(dhcpEvent->mudSigURL);
 		snprintf(myMessage, 150, "MY VERSION: The result of mudURL is %s", dhcpEvent->mudFileURL);
-		logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, myMessage);
+		logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, myMessage);
 		snprintf(myMessage, 150, "MY VERSION: The result of sigURL is %s", dhcpEvent->mudSigURL);
-		logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, myMessage);
+		logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, myMessage);
 		/* We are processing a MUD aware device. Go to the MUD file server and get the usage description */
 		/* non-zero return code indicates error during communications */
 		/* Mud files and signature files are stored in their computed storage locations for future reference */
@@ -283,14 +289,14 @@ void executeNewDhcpAction(DhcpEvent *dhcpEvent)
 			if (!getOpenMudFile(dhcpEvent->mudSigURL, dhcpEvent->mudSigFileStorageLocation))
 			{
 
-				logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_MUD_FILE, "IN ****NEW**** MUD and SIG FILE RETRIEVED!!!");
+				logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_MUD_FILE, "IN ****NEW**** MUD and SIG FILE RETRIEVED!!!");
 				/************MY VERSION**************/
 				int is_valid = validateMudFileWithSig(dhcpEvent);
 				snprintf(myMessage, 150, "MY VERSION: The result of validateMudFileWithSig is %d", is_valid);
-				logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, myMessage);
+				logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, myMessage);
 				//if ( is_valid == VALID_MUD_FILE_SIG)
 				//{
-					logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, "MY VERSION: This testi is without signature!");
+					logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, "MY VERSION: This testi is without signature!");
 					/*
 					 * All files downloaded and signature valid.
 					 * CALL INTERFACE TO CARRY OUT MUD ACTION HERE
