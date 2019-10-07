@@ -215,7 +215,9 @@ int installDnsRule(char *targetDomainName, char *srcIpAddr, char *srcMacAddr, ch
         else
 	{
             logOmsGeneralMessage(OMS_CRIT, OMS_SUBSYS_DEVICE_INTERFACE, "Could not write DNS rule to file.");
-            retval = 1;
+            logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_DEVICE_INTERFACE, "Could not write DNS rule to file.");
+
+			retval = 1;
 	}
 
 	return retval;

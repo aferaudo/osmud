@@ -23,8 +23,7 @@ PKG_RELEASE:=1
 
 # Source settings (i.e. where to find the source codes)
 # This is a custom variable, used below
-# THIS HELPS YOU TO UNDERSTAND WICH CODE WILL BE USED FOR OPENWRT!
-SOURCE_DIR:=/home/lede/osmud/src 
+SOURCE_DIR:=/home/lede/osmud/src
 
 include $(INCLUDE_DIR)/package.mk
 

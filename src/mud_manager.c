@@ -61,9 +61,19 @@ void buildDhcpEventsLogMsg(char *buf, int bufSize)
 int buildPortRange(char *portBuf, int portBufSize, AceEntry *ace)
 {
 	int retval = 0; /* Return > 0 if there is an error with port assignments */
-
-	snprintf(portBuf, portBufSize, "%s:%s", ace->lowerPort, ace->upperPort);
-	portBuf[portBufSize-1] = '\0';
+	/*This is necessary because if we do not do that the command:
+	/etc/osmud/create_ip_fw_rule.sh -s lan -d wan -i 192.168.10.55 -a any -j 23.20.239.12 -b (null):(null) -p tcp -n cl0-frdev -t ACCEPT -f all -c macbook-pro
+	does not work! So for now by default we use any as ports if they are not specified in the mudfile*/
+	if(ace->lowerPort == NULL || ace->upperPort == NULL){
+		logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_DEVICE_INTERFACE,"something null");
+		snprintf(portBuf, portBufSize, "any");
+		portBuf[portBufSize-1] = '\0';
+		logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_DEVICE_INTERFACE,portBuf);
+	}else{
+		snprintf(portBuf, portBufSize, "%s:%s", ace->lowerPort, ace->upperPort);
+		portBuf[portBufSize-1] = '\0';
+		logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_DEVICE_INTERFACE,portBuf);
+	}
 
 	return retval;
 }
