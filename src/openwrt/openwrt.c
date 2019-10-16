@@ -243,8 +243,8 @@ int verifyCmsSignature(char *mudFileLocation, char *mudSigFileLocation)
 
 	snprintf(execBuf, BUFSIZE, "openssl cms -verify -in %s -inform DER -content %s -purpose any", mudSigFileLocation, mudFileLocation);
 	execBuf[BUFSIZE-1] = '\0';
-
-	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, execBuf);
+	
+	logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, execBuf);
 	retval = system(execBuf);
 	snprintf(myMessage, 150, "MY VERSION: The result of the openssl command is %d", retval);
 	logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, myMessage);
@@ -256,7 +256,6 @@ int verifyCmsSignature(char *mudFileLocation, char *mudSigFileLocation)
 	else {
 		sigStatus = VALID_MUD_FILE_SIG;
 	}
-
 	return sigStatus;
 
 }

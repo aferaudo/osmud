@@ -22,7 +22,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/select.h>
-
+#include <time.h>
 #include <errno.h>
 
 #include "comms.h"
@@ -40,6 +40,7 @@
 #define DHCP_EVENT_FILE "/var/log/dhcpmasq.txt"
 #define PID_FILE "/var/run/osmud.pid"
 #define OSMUD_LOG_FILE "/var/log/osmud.log"
+#define OSMUD_PERF_FILE "/var/log/osmud_perf.log"
 
 typedef int FD;
 
@@ -49,7 +50,9 @@ char *osmudConfigFile = (char *)0;
 char *dhcpEventFile = (char *)0;
 char *osmudPidFile = (char *)0;
 char *osMudLogFile = (char *)0;
+char *osMudPerfFile = (char *)0;
 int noFailOnMudValidation = 0;
+
 
 int heartBeatCycle = 0; /* how many polling cycles have passed in this interval period*/
 int heartBeatLogInterval = 720; /* Every x cycles, trigger the heartbeat log - 1 hour */
@@ -131,6 +134,7 @@ void dumpStatsToLog()
 void doProcessLoop(FD filed)
 {
 	char dhcpEventLine[MAXLINE];
+	char *msgBuf[50]; //performance testing variables
 	DhcpEvent dhcpEvent;
 	dhcpEvent.action = NONE;
 	dhcpEvent.date = NULL;
@@ -143,6 +147,8 @@ void doProcessLoop(FD filed)
 	dhcpEvent.mudSigURL = NULL;
 	dhcpEvent.mudFileStorageLocation = NULL;
 	dhcpEvent.mudSigFileStorageLocation = NULL;
+	time_t start_t, end_t; //performance testing variables
+	double diff_t; //performance testing variables
 
 	while (1)
 	{
@@ -151,7 +157,8 @@ void doProcessLoop(FD filed)
 
 		int hhh;
 		if ((hhh = pollDhcpFile(dhcpEventLine, MAXLINE, filed))) {
-			logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, "Executing on dhcpmasq info");
+			time(&start_t);
+			logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, "Executing on dhcpmasq info");
 			if (processDhcpEventFromLog(dhcpEventLine, &dhcpEvent))
 			{
 				// There is a valid DHCP event to process
@@ -161,6 +168,16 @@ void doProcessLoop(FD filed)
 			{
 				logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, "Will not process DHCP event - invalid message format.... sleeping for 5...");
 			}
+			// performance
+			time(&end_t);
+			diff_t = difftime(end_t, start_t);
+			sprintf(msgBuf, "%f\n", diff_t);
+
+			if(isPerfEnable()){
+				logOmsTimingMessage(OMS_SUBSYS_TIMESTAMP, dhcpEvent.ipAddress, msgBuf);
+				logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, "Performance...done!");
+			}
+			/****/
 		}
 #if 0
 		else {
@@ -199,6 +216,7 @@ void printHelp()
 	printf("    -b <MUD file storage data directory>: set the directory path for MUD file storage\n");
 	printf("    -c <osMUD config file>: set the directory path and file for osMUD startup configuration file\n");
 	printf("    -l <osMUD logfile>: set the osMUD logger path and file for system event logging.\n");
+	printf("	-p: enable the testing of the performace\n");
 	printf("    -v: display osmud version information and exit\n");
 }
 
@@ -209,6 +227,7 @@ void checkForDefaults() {
 	if (!dhcpEventFile) dhcpEventFile = copystring(DHCP_EVENT_FILE);
 	if (!osmudPidFile) osmudPidFile = copystring(PID_FILE);
 	if (!osMudLogFile) osMudLogFile = copystring(OSMUD_LOG_FILE);
+	if (!osMudPerfFile) osMudPerfFile = copystring(OSMUD_PERF_FILE);
 }
 
 int writePidFile(pid_t osMudPid) {
@@ -254,11 +273,15 @@ void logInitialSettings()
 
 	sprintf(msgBuf, "    osMUD logger path and file: %s", osMudLogFile);
 	logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, msgBuf);
+
+	sprintf(msgBuf, "    osMUD prformance logger path and file: %s", osMudPerfFile);
+	logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, msgBuf);
 }
 
 int main(int argc, char* argv[])
 {
 	FILE *logger= NULL;
+	FILE *perLogger = NULL;
 	pid_t process_id = 0;
 	pid_t sid = 0;
 
@@ -268,7 +291,7 @@ int main(int argc, char* argv[])
     char *osLogLevel = NULL;
 
 	//TODO: Need option for logFileName, logToConsole, eventFileWithPath, logLevel (INFO|WARN|DEBUG)
-    while ((opt = getopt(argc, argv, "vidhkx:e:w:b:c:l:m:")) != -1) {
+    while ((opt = getopt(argc, argv, "vidhkx:e:w:b:c:l:m:p")) != -1) {
         switch (opt) {
         case 'd':       debugMode = 1;
         				break;
@@ -296,6 +319,8 @@ int main(int argc, char* argv[])
 						break;
 		case 'm':		osLogLevel = copystring(optarg);
 						break;
+		case 'p':		enablePerf();
+						break;
         default:
             printHelp(); /* If you find an unknown option, do not start up */
             exit(EXIT_FAILURE);
@@ -310,6 +335,12 @@ int main(int argc, char* argv[])
 		return -1;
     }
 
+	//performance
+	if (!(perLogger = fopen_with_path(osMudPerfFile, "w+"))) {
+    	printf("OSMUD could not open the performance logger output file.");
+		return -1;
+    }
+
     if (createMudfileStorage(mudFileDataDirectory) != 0) {
     	printf("OSMUD could not create the MUD file storage location. Use the \"-b <mud-storage-path>\" option to set the MUD storage location to a directory with write access.\n");
 		return -1;
@@ -317,6 +348,7 @@ int main(int argc, char* argv[])
 
     resetDhcpCounters();
 	setOmsLogger(logger);
+	setOmsTimeLogger(perLogger); //performance
 	if (debugMode == 1)
 		setLoggingLevel(OMS_DEBUG);
 	else
@@ -377,8 +409,8 @@ int main(int argc, char* argv[])
 
 	// Close stdin. stdout and stderr
 	close(STDIN_FILENO);
-	close(STDOUT_FILENO);
-	close(STDERR_FILENO);
+	//close(STDOUT_FILENO);
+	//close(STDERR_FILENO);
 
 	doProcessLoop(filed);
 

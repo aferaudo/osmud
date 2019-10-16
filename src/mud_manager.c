@@ -63,7 +63,7 @@ int buildPortRange(char *portBuf, int portBufSize, AceEntry *ace)
 	int retval = 0; /* Return > 0 if there is an error with port assignments */
 	/*This is necessary because if we do not do that the command:
 	/etc/osmud/create_ip_fw_rule.sh -s lan -d wan -i 192.168.10.55 -a any -j 23.20.239.12 -b (null):(null) -p tcp -n cl0-frdev -t ACCEPT -f all -c macbook-pro
-	does not work! So for now by default we use any as ports if they are not specified in the mudfile*/
+	does not work, because the port are null. This is not true in any case. So for now by default we use any as ports if they are not specified in the mudfile*/
 	if(ace->lowerPort == NULL || ace->upperPort == NULL){
 		logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_DEVICE_INTERFACE,"something null");
 		snprintf(portBuf, portBufSize, "any");
@@ -95,7 +95,7 @@ int processFromAccess(char *aclName, char *aclType, AclEntry *acl, DhcpEvent *ev
 	for (i = 0; i < acl->aceCount; i++) {
 		if (acl->aceList[i].aceType == ACLDNS) {
     		logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_DEVICE_INTERFACE, "Applying *from* dns ace rule.");
-
+			printf("DNS info: %s\n",acl->aceList[i].dnsName);
     		dnsInfo = resolveDnsEntryToIp(acl->aceList[i].dnsName);
 
     		// Need to check a return code to make sure the rule got applied correctly
@@ -296,17 +296,15 @@ void executeNewDhcpAction(DhcpEvent *dhcpEvent)
 			 * is provided. This feature will be removed from a future release and is only provided now
 			 * until certificates compatible with OPENSSL CMS VERIFY commands are in ready use.
 			 */
-			if (!getOpenMudFile(dhcpEvent->mudSigURL, dhcpEvent->mudSigFileStorageLocation))
+			if ((!getOpenMudFile(dhcpEvent->mudSigURL, dhcpEvent->mudSigFileStorageLocation))
+				|| (noFailOnMudValidation))
 			{
 
 				logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_MUD_FILE, "IN ****NEW**** MUD and SIG FILE RETRIEVED!!!");
-				/************MY VERSION**************/
-				int is_valid = validateMudFileWithSig(dhcpEvent);
-				snprintf(myMessage, 150, "MY VERSION: The result of validateMudFileWithSig is %d", is_valid);
-				logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, myMessage);
-				//if ( is_valid == VALID_MUD_FILE_SIG)
-				//{
-					logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, "MY VERSION: This testi is without signature!");
+
+				if ((validateMudFileWithSig(dhcpEvent) == VALID_MUD_FILE_SIG)
+					|| (noFailOnMudValidation))
+				{
 					/*
 					 * All files downloaded and signature valid.
 					 * CALL INTERFACE TO CARRY OUT MUD ACTION HERE
@@ -314,11 +312,11 @@ void executeNewDhcpAction(DhcpEvent *dhcpEvent)
 					executeMudWithDhcpContext(dhcpEvent);
 					installMudDbDeviceEntry(mudFileDataDirectory, dhcpEvent->ipAddress, dhcpEvent->macAddress,
 							dhcpEvent->mudFileURL, dhcpEvent->mudFileStorageLocation, dhcpEvent->hostName);
-				//}
-				/*else
+				}
+				else
 				{
 					logOmsGeneralMessage(OMS_ERROR, OMS_SUBSYS_MUD_FILE, "ERROR: ****NEW**** BAD SIGNATURE - FAILED VALIDATION!!!");
-				}*/
+				}
 			}
 			else
 			{
@@ -329,6 +327,7 @@ void executeNewDhcpAction(DhcpEvent *dhcpEvent)
 		{
 			logOmsGeneralMessage(OMS_ERROR, OMS_SUBSYS_MUD_FILE, "ERROR: ****NEW**** NO MUD FILE RETRIEVED!!!");
 		}
+	
 	}
 	else
 	{

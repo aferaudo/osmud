@@ -19,8 +19,10 @@
 #include "oms_messages.h"
 #include "oms_utils.h"
 
-FILE *logFile;
+FILE *logFile, *timeLogFile;
+
 int omsLogLevel = OMS_INFO;
+int performance_testing = 0;
 
 const char * omsLogMessages[600];
 
@@ -70,6 +72,7 @@ const char* getSubsystemText(enum OMS_SUBSYSTEM_CLASSES subsystem)
    	   case OMS_SUBSYS_COMMUNICATION: return "COMMUNICATION";
    	   case OMS_SUBSYS_MUD_FILE: return "MUD_FILE_OPERATIONS";
    	   case OMS_SUBSYS_DEVICE_INTERFACE: return "DEVICE_INTERFACE";
+	   case OMS_SUBSYS_TIMESTAMP: return "PERFORMANCE_TEST";
    	   default: return "UNKNOWN";
    }
 }
@@ -79,11 +82,25 @@ void setOmsLogger(FILE *loggerFd)
 	logFile = loggerFd;
 }
 
+/*Testing performance*/
+void setOmsTimeLogger(FILE *loggerFd)
+{
+	timeLogFile = loggerFd;
+}
+
 void setLoggingLevel(int logLevel)
 {
 	omsLogLevel = logLevel;
 }
 
+void enablePerf(){
+	performance_testing = 1;
+}
+
+int isPerfEnable(){
+	return performance_testing;
+}
+//*******************
 void initializeMessageLogging()
 {
 	/* initialize all with NULL's so invalid codes correspond to NULL pointers */
@@ -119,6 +136,13 @@ void logOmsGeneralMessage(int severity, int omsSubsystem, char * messageText)
 		fprintf(logFile, "%04d-%02d-%02d %02d:%02d:%02d %s::%s::%s\n", tm->tm_year+1900, tm->tm_mon,
 				tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec, getSeverityText(severity), getSubsystemText(omsSubsystem), messageText);
 		fflush(logFile);
+	}
+}
+
+void logOmsTimingMessage(int omsSubsystem, char* deviceName, char * messageText){
+	if(performance_testing){
+		fprintf(timeLogFile, "%s::%s::Execution time %s", getSubsystemText(omsSubsystem), deviceName, messageText);
+		fflush(timeLogFile);
 	}
 }
 

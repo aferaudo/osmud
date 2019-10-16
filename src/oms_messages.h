@@ -36,7 +36,8 @@ enum OMS_SUBSYSTEM_CLASSES {
  OMS_SUBSYS_CONTROLLER,
  OMS_SUBSYS_COMMUNICATION,
  OMS_SUBSYS_MUD_FILE,
- OMS_SUBSYS_DEVICE_INTERFACE
+ OMS_SUBSYS_DEVICE_INTERFACE,
+ OMS_SUBSYS_TIMESTAMP //Time performance
 };
 
 void logOmsMessage(int severity, int omsSubsystem, int msgId);
@@ -46,6 +47,11 @@ void setLoggingLevel(int logLevel);
 int getLogLevelFromArg(char *logLevel);
 void initializeMessageLogging();
 
+// Function time performance
+void setOmsTimeLogger(FILE *loggerFd);
+void logOmsTimingMessage(int omsSubsystem, char* deviceName, char * messageText);
+void enablePerf();
+int isPerfEnable();
 #define CANT_READ_FILE 1
 #define CANT_WRITE_FILE 2
 #define OUT_OF_MEMORY 3
