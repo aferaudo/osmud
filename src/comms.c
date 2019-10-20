@@ -73,6 +73,11 @@ int getOpenMudFile(char *mudFile, char *outputFile)
     headers = curl_slist_append(headers, "Accept-Language: en-us");
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl");
+    
+    curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L); //used to check also the http error such as 404
+    // The 404 error is possible in this case because we add the possibility for an an admin to add
+    // another mudfile. So, we verify if there is another file for that device, by using the macaddress
+    //if it doesn't exist, mean a 404 error from the server
 
     // TODO: If this takes a long time, it can't block the rest of the app
     //       may need this to be a new thread or something of the sort

@@ -20,7 +20,6 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <fcntl.h>
-#include <string.h>
 #include <sys/select.h>
 #include <time.h>
 #include <errno.h>
@@ -148,7 +147,8 @@ void doProcessLoop(FD filed)
 	dhcpEvent.mudFileStorageLocation = NULL;
 	dhcpEvent.mudSigFileStorageLocation = NULL;
 	time_t start_t, end_t; //performance testing variables
-	double diff_t; //performance testing variables
+	clock_t t; //performance cpu (processor time)
+	double diff_t, time_taken; //performance testing variables
 
 	while (1)
 	{
@@ -158,6 +158,7 @@ void doProcessLoop(FD filed)
 		int hhh;
 		if ((hhh = pollDhcpFile(dhcpEventLine, MAXLINE, filed))) {
 			time(&start_t);
+			t = clock(); 
 			logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, "Executing on dhcpmasq info");
 			if (processDhcpEventFromLog(dhcpEventLine, &dhcpEvent))
 			{
@@ -170,10 +171,11 @@ void doProcessLoop(FD filed)
 			}
 			// performance
 			time(&end_t);
-			diff_t = difftime(end_t, start_t);
-			sprintf(msgBuf, "%f\n", diff_t);
-
-			if(isPerfEnable()){
+			t = clock() - t;
+			if(isPerfEnable() && strcmp(getDhcpEventText(dhcpEvent.action), "NEW") == 0 && strcmp(dhcpEvent.mudFileURL,"-") != 0){
+				diff_t = difftime(end_t, start_t);
+				time_taken = ((double)t)/CLOCKS_PER_SEC; // in seconds 
+				sprintf(msgBuf, "%f::%f\n", diff_t);
 				logOmsTimingMessage(OMS_SUBSYS_TIMESTAMP, dhcpEvent.ipAddress, msgBuf);
 				logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, "Performance...done!");
 			}

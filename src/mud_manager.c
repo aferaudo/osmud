@@ -188,6 +188,7 @@ int executeMudWithDhcpContext(DhcpEvent *dhcpEvent)
 	int retval = 0; // non-zero indicates errors
 	int actionResult = 0;
 	char mymessage[100];
+	char rejectRuleName[150];
 
 	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, "IN ****NEW**** executeMudWithDhcpContext()");
 
@@ -233,6 +234,7 @@ int executeMudWithDhcpContext(DhcpEvent *dhcpEvent)
 		    	}
 		    }
 
+			snprintf(rejectRuleName, 150, "REJECT-ALL-%s", dhcpEvent->hostName); 
 		    // Install default rule to block all traffic from this IP address unless allowed in the MUD file
 		    // ORDER MATTERS - this rule needs to be installed after all of the individual allow/deny rules
 			actionResult = installFirewallIPRule(dhcpEvent->ipAddress, 		/* srcIp */
@@ -241,8 +243,8 @@ int executeMudWithDhcpContext(DhcpEvent *dhcpEvent)
 													LAN_DEVICE_NAME, 		/* srcDevice - lan or wan */
 													WAN_DEVICE_NAME,		/* destDevice - lan or wan */
 													"all", 					/* protocol - tcp/udp */
-													"REJECT-ALL", 			/* the name of the rule -- TODO: Better rule names by device name*/
-													"DENY",					/* ACCEPT or DENY or REJECT */
+													rejectRuleName, 			/* the name of the rule -- TODO: Better rule names by device name*/
+													"REJECT",					/* ACCEPT or DENY or REJECT */
 													"all",
 													dhcpEvent->hostName		/* hostname of the new device */ );
 			if (actionResult) {
@@ -270,11 +272,19 @@ int executeMudWithDhcpContext(DhcpEvent *dhcpEvent)
  * 1) Validates the MUD file (maybe via yanglint when spec is finalized)
  * 2) parses the MUD file into a OSMUD data structure representing the MUD file
  * 3) Calls the device specific implementations to implement the features in the mud file
+ * 4) Ask to the local mfs for a possible mudfile inserted by the admin (this mudfile must have as address the macaddress of the device)
+ * 5) Repeat 1,2,3
  */
+
 void executeNewDhcpAction(DhcpEvent *dhcpEvent)
 {
 	char logMsgBuf[4096];
 	char myMessage[150];
+	/*BE CAREFUL! Change the values of this to parameters
+	on the basis of the address of your local mud file server*/
+	char newFileURL[100] = "https://www.mfs.example.com/";
+	char *newSigURL;
+
 	buildDhcpEventContext(logMsgBuf, "NEW", dhcpEvent);
 	logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, logMsgBuf);
 
@@ -287,6 +297,7 @@ void executeNewDhcpAction(DhcpEvent *dhcpEvent)
 		logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, myMessage);
 		snprintf(myMessage, 150, "MY VERSION: The result of sigURL is %s", dhcpEvent->mudSigURL);
 		logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, myMessage);
+
 		/* We are processing a MUD aware device. Go to the MUD file server and get the usage description */
 		/* non-zero return code indicates error during communications */
 		/* Mud files and signature files are stored in their computed storage locations for future reference */
@@ -312,6 +323,60 @@ void executeNewDhcpAction(DhcpEvent *dhcpEvent)
 					executeMudWithDhcpContext(dhcpEvent);
 					installMudDbDeviceEntry(mudFileDataDirectory, dhcpEvent->ipAddress, dhcpEvent->macAddress,
 							dhcpEvent->mudFileURL, dhcpEvent->mudFileStorageLocation, dhcpEvent->hostName);
+					
+					logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_MUD_FILE, "NEW FEATURE: The admin can add a mud file for a device! The mudManager check by using the mac address of the device");
+					
+					// Create the new addresses
+					// 1) File URL
+					strcat(newFileURL, dhcpEvent->macAddress);
+					strcat(newFileURL,".json");
+
+					dhcpEvent->mudFileURL = newFileURL;
+					// Change the name of the mudfile
+					dhcpEvent->mudFileStorageLocation = createStorageLocation(dhcpEvent->mudFileURL);
+		
+					//2) Sig File URL
+					dhcpEvent->mudSigURL = createSigUrlFromMudUrl(dhcpEvent->mudFileURL);
+					// Change the name of the mudfile
+					dhcpEvent->mudSigFileStorageLocation = createStorageLocation(dhcpEvent->mudSigURL);
+					
+					snprintf(myMessage, 150, "MY VERSION: The result of mudURL is %s", dhcpEvent->mudFileURL);
+					logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, myMessage);
+					snprintf(myMessage, 150, "MY VERSION: The result of sigURL is %s", dhcpEvent->mudSigURL);
+					logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, myMessage);
+
+					// Download the mud file (MACADDRESS.json)
+					if (!getOpenMudFile(dhcpEvent->mudFileURL, dhcpEvent->mudFileStorageLocation))
+					{				
+						// Download the signature mud file (MACADDRESS.p7s)
+						if ((!getOpenMudFile(dhcpEvent->mudSigURL, dhcpEvent->mudSigFileStorageLocation))
+							|| (noFailOnMudValidation)){
+							logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_MUD_FILE, "NEW FEATURE: Exists EXTRA mudFile!");
+
+							/*In this case to add more security we also verify the signature of server managed by the admin*/
+						
+							if ((validateMudFileWithSig(dhcpEvent) == VALID_MUD_FILE_SIG)
+								|| (noFailOnMudValidation))
+							{
+								/*
+								* All files downloaded and signature valid.
+								* CALL INTERFACE TO CARRY OUT MUD ACTION HERE
+								*/
+								executeMudWithDhcpContext(dhcpEvent);
+								installMudDbDeviceEntry(mudFileDataDirectory, dhcpEvent->ipAddress, dhcpEvent->macAddress,
+										dhcpEvent->mudFileURL, dhcpEvent->mudFileStorageLocation, dhcpEvent->hostName);
+							}else
+							{
+								logOmsGeneralMessage(OMS_ERROR, OMS_SUBSYS_MUD_FILE, "ERROR: ****NEW**** BAD SIGNATURE ADMIN MFS - FAILED VALIDATION!!!");
+							}
+						}else
+						{
+							logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_MUD_FILE, "NEW FEATURE: NO EXTRA SIG MUDFILE RETRIEVED!!!");
+						}
+					}else
+					{
+						logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_MUD_FILE, "NEW FEATURE: NO EXTRA MUDFILE RETRIEVED!!!");
+					}
 				}
 				else
 				{

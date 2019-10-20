@@ -139,6 +139,7 @@ processDhcpEventFromLog(char *logMessage, DhcpEvent *dhcpEvent)
 	char *array[20]; /* really should be the count of spaces in the logMessage+1 */
 	int i=0;
 	char *tmpStr, *curToken;
+	char tmp[200];
 	int retval = 1;
 
 	if (logMessage) {
@@ -166,6 +167,8 @@ processDhcpEventFromLog(char *logMessage, DhcpEvent *dhcpEvent)
 		dhcpEvent->mudFileURL = NULL;
 		if ((array[6] != NULL) && (strlen(array[6]) > 1)) {
 			dhcpEvent->mudFileURL = array[6];
+			sprintf(tmp, "MudURL is not null: %s", dhcpEvent->mudFileURL);
+			logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL,tmp);
 		}
 	} else {
 		retval = 0; //error process log message line

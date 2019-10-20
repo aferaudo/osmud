@@ -86,6 +86,8 @@ void setOmsLogger(FILE *loggerFd)
 void setOmsTimeLogger(FILE *loggerFd)
 {
 	timeLogFile = loggerFd;
+	fprintf(timeLogFile, "TYPELOG::DEVICE NAME::EXECUTION TIME::PROCESSOR TIME(ClockXsec)\n");
+	fflush(timeLogFile);
 }
 
 void setLoggingLevel(int logLevel)
@@ -141,7 +143,7 @@ void logOmsGeneralMessage(int severity, int omsSubsystem, char * messageText)
 
 void logOmsTimingMessage(int omsSubsystem, char* deviceName, char * messageText){
 	if(performance_testing){
-		fprintf(timeLogFile, "%s::%s::Execution time %s", getSubsystemText(omsSubsystem), deviceName, messageText);
+		fprintf(timeLogFile, "%s::%s::Performance %s", getSubsystemText(omsSubsystem), deviceName, messageText);
 		fflush(timeLogFile);
 	}
 }
