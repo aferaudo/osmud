@@ -50,6 +50,7 @@ char *dhcpEventFile = (char *)0;
 char *osmudPidFile = (char *)0;
 char *osMudLogFile = (char *)0;
 char *osMudPerfFile = (char *)0;
+char *adminMfs = (char *)0;
 int noFailOnMudValidation = 0;
 
 
@@ -219,6 +220,7 @@ void printHelp()
 	printf("    -c <osMUD config file>: set the directory path and file for osMUD startup configuration file\n");
 	printf("    -l <osMUD logfile>: set the osMUD logger path and file for system event logging.\n");
 	printf("	-p: enable the testing of the performace\n");
+	printf("	-a <admin-local-server-address>: set the address of an internal mud file server managed by an admin\n");
 	printf("    -v: display osmud version information and exit\n");
 }
 
@@ -293,7 +295,7 @@ int main(int argc, char* argv[])
     char *osLogLevel = NULL;
 
 	//TODO: Need option for logFileName, logToConsole, eventFileWithPath, logLevel (INFO|WARN|DEBUG)
-    while ((opt = getopt(argc, argv, "vidhkx:e:w:b:c:l:m:p")) != -1) {
+    while ((opt = getopt(argc, argv, "vidhkx:e:w:b:c:l:m:pa:")) != -1) {
         switch (opt) {
         case 'd':       debugMode = 1;
         				break;
@@ -322,6 +324,8 @@ int main(int argc, char* argv[])
 		case 'm':		osLogLevel = copystring(optarg);
 						break;
 		case 'p':		enablePerf();
+						break;
+		case 'a':		adminMfs = copystring(optarg);
 						break;
         default:
             printHelp(); /* If you find an unknown option, do not start up */

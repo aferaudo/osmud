@@ -37,11 +37,13 @@
 
 extern char *dnsWhiteListFile;
 extern int noFailOnMudValidation;
+extern char *adminMfs; //used to specify which is the internal server
 
 int dhcpNewEventCount = 0;
 int dhcpOldEventCount = 0;
 int dhcpDeleteEventCount = 0;
 int dhcpErrorEventCount = 0;
+int admin = 0;
 
 void resetDhcpCounters()
 {
@@ -50,6 +52,7 @@ void resetDhcpCounters()
 	dhcpDeleteEventCount = 0;
 	dhcpErrorEventCount = 0;
 }
+
 
 void buildDhcpEventsLogMsg(char *buf, int bufSize)
 {
@@ -189,7 +192,6 @@ int executeMudWithDhcpContext(DhcpEvent *dhcpEvent)
 	int actionResult = 0;
 	char mymessage[100];
 	char rejectRuleName[150];
-
 	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, "IN ****NEW**** executeMudWithDhcpContext()");
 
 
@@ -207,7 +209,9 @@ int executeMudWithDhcpContext(DhcpEvent *dhcpEvent)
 	// Loop over mud file and carry out actions
 	if (mudFile) {
 			// First, remove any prior entry for this device in case a NEW event happens for an existing configured device
-			removeFirewallIPRule(dhcpEvent->ipAddress, dhcpEvent->macAddress);
+			// Otherwise we would delete the rules inserted before!
+			if(!admin)
+				removeFirewallIPRule(dhcpEvent->ipAddress, dhcpEvent->macAddress);
 
 			// Second, iterate over the MUD file and apply new rules
 		    for (i = 0; i < mudFile->fromAccessListCount; i++) {
@@ -280,9 +284,7 @@ void executeNewDhcpAction(DhcpEvent *dhcpEvent)
 {
 	char logMsgBuf[4096];
 	char myMessage[150];
-	/*BE CAREFUL! Change the values of this to parameters
-	on the basis of the address of your local mud file server*/
-	char newFileURL[100] = "https://www.mfs.example.com/";
+	char newFileURL[100] = "";
 	char *newSigURL;
 
 	buildDhcpEventContext(logMsgBuf, "NEW", dhcpEvent);
@@ -326,57 +328,68 @@ void executeNewDhcpAction(DhcpEvent *dhcpEvent)
 					
 					logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_MUD_FILE, "NEW FEATURE: The admin can add a mud file for a device! The mudManager check by using the mac address of the device");
 					
-					// Create the new addresses
-					// 1) File URL
-					strcat(newFileURL, dhcpEvent->macAddress);
-					strcat(newFileURL,".json");
-
-					dhcpEvent->mudFileURL = newFileURL;
-					// Change the name of the mudfile
-					dhcpEvent->mudFileStorageLocation = createStorageLocation(dhcpEvent->mudFileURL);
-		
-					//2) Sig File URL
-					dhcpEvent->mudSigURL = createSigUrlFromMudUrl(dhcpEvent->mudFileURL);
-					// Change the name of the mudfile
-					dhcpEvent->mudSigFileStorageLocation = createStorageLocation(dhcpEvent->mudSigURL);
+					/*If an internal mfs is specified, the program will ask for another mudfile*/
+					snprintf(myMessage, 150, "NEW FEATURE: The result of mudURL is %s", adminMfs);
+					logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, myMessage);
 					
-					snprintf(myMessage, 150, "MY VERSION: The result of mudURL is %s", dhcpEvent->mudFileURL);
-					logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, myMessage);
-					snprintf(myMessage, 150, "MY VERSION: The result of sigURL is %s", dhcpEvent->mudSigURL);
-					logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, myMessage);
+					if(adminMfs){
+						// Create the new addresses
+						strcpy(newFileURL, adminMfs);
+						// 1) File URL
+						strcat(newFileURL, dhcpEvent->macAddress);
+						strcat(newFileURL,".json");
 
-					// Download the mud file (MACADDRESS.json)
-					if (!getOpenMudFile(dhcpEvent->mudFileURL, dhcpEvent->mudFileStorageLocation))
-					{				
-						// Download the signature mud file (MACADDRESS.p7s)
-						if ((!getOpenMudFile(dhcpEvent->mudSigURL, dhcpEvent->mudSigFileStorageLocation))
-							|| (noFailOnMudValidation)){
-							logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_MUD_FILE, "NEW FEATURE: Exists EXTRA mudFile!");
-
-							/*In this case to add more security we also verify the signature of server managed by the admin*/
+						dhcpEvent->mudFileURL = newFileURL;
+						// Change the name of the mudfile
+						dhcpEvent->mudFileStorageLocation = createStorageLocation(dhcpEvent->mudFileURL);
+			
+						//2) Sig File URL
+						dhcpEvent->mudSigURL = createSigUrlFromMudUrl(dhcpEvent->mudFileURL);
+						// Change the name of the mudfile
+						dhcpEvent->mudSigFileStorageLocation = createStorageLocation(dhcpEvent->mudSigURL);
 						
-							if ((validateMudFileWithSig(dhcpEvent) == VALID_MUD_FILE_SIG)
-								|| (noFailOnMudValidation))
-							{
-								/*
-								* All files downloaded and signature valid.
-								* CALL INTERFACE TO CARRY OUT MUD ACTION HERE
-								*/
-								executeMudWithDhcpContext(dhcpEvent);
-								installMudDbDeviceEntry(mudFileDataDirectory, dhcpEvent->ipAddress, dhcpEvent->macAddress,
-										dhcpEvent->mudFileURL, dhcpEvent->mudFileStorageLocation, dhcpEvent->hostName);
+						snprintf(myMessage, 150, "NEW FEATURE: The result of mudURL is %s", dhcpEvent->mudFileURL);
+						logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, myMessage);
+						snprintf(myMessage, 150, "NEW FEATURE: The result of sigURL is %s", dhcpEvent->mudSigURL);
+						logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, myMessage);
+
+						// Download the mud file (MACADDRESS.json)
+						if (!getOpenMudFile(dhcpEvent->mudFileURL, dhcpEvent->mudFileStorageLocation))
+						{				
+							// Download the signature mud file (MACADDRESS.p7s)
+							if ((!getOpenMudFile(dhcpEvent->mudSigURL, dhcpEvent->mudSigFileStorageLocation))
+								|| (noFailOnMudValidation)){
+								logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_MUD_FILE, "NEW FEATURE: Exists EXTRA mudFile!");
+
+								/*In this case to add more security we also verify the signature of server managed by the admin*/
+							
+								if ((validateMudFileWithSig(dhcpEvent) == VALID_MUD_FILE_SIG)
+									|| (noFailOnMudValidation))
+								{
+									/*
+									* All files downloaded and signature valid.
+									* CALL INTERFACE TO CARRY OUT MUD ACTION HERE
+									*/
+									executeMudWithDhcpContext(dhcpEvent);
+									installMudDbDeviceEntry(mudFileDataDirectory, dhcpEvent->ipAddress, dhcpEvent->macAddress,
+											dhcpEvent->mudFileURL, dhcpEvent->mudFileStorageLocation, dhcpEvent->hostName);
+								}else
+								{
+									logOmsGeneralMessage(OMS_ERROR, OMS_SUBSYS_MUD_FILE, "ERROR: ****NEW**** BAD SIGNATURE ADMIN MFS - FAILED VALIDATION!!!");
+								}
 							}else
 							{
-								logOmsGeneralMessage(OMS_ERROR, OMS_SUBSYS_MUD_FILE, "ERROR: ****NEW**** BAD SIGNATURE ADMIN MFS - FAILED VALIDATION!!!");
+								logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_MUD_FILE, "NEW FEATURE: NO EXTRA SIG MUDFILE RETRIEVED!!!");
 							}
 						}else
 						{
-							logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_MUD_FILE, "NEW FEATURE: NO EXTRA SIG MUDFILE RETRIEVED!!!");
+							logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_MUD_FILE, "NEW FEATURE: NO EXTRA MUDFILE RETRIEVED!!!");
 						}
 					}else
 					{
-						logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_MUD_FILE, "NEW FEATURE: NO EXTRA MUDFILE RETRIEVED!!!");
+						logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_MUD_FILE, "NEW FEATURE: ADMIN MFS NOT SPECIFIED!");
 					}
+					
 				}
 				else
 				{
