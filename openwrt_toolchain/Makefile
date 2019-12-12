@@ -69,8 +69,10 @@ define Package/osmud/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/openwrt/remove_ip_fw_rule.sh $(1)/etc/osmud
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/openwrt/create_mud_db_entry.sh $(1)/etc/osmud
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/openwrt/create_mud_db_entry.sh $(1)/etc/osmud
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/openwrt/startup.sh $(1)/etc/osmud
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/dnsmasq/detect_new_device.sh $(1)/etc/osmud
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/dnsmasq/dnsmasq.sample.conf $(1)/etc/osmud
+	
 	
 	$(INSTALL_DIR) $(1)/etc/init.d/
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/openwrt/osmud.init $(1)/etc/init.d/osmud	
@@ -80,8 +82,8 @@ define Package/osmud/postinst
 #!/bin/sh
 # check if we are on real system
 if [ -z "$${IPKG_INSTROOT}" ]; then
-        echo "Enabling rc.d symlink for osmud"
-        /etc/init.d/osmud enable
+        echo "To start osmud launch the script /etc/osmud/startup.sh"
+        /etc/init.d/osmud disable
 fi
 exit 0
 endef
