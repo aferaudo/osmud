@@ -30,6 +30,11 @@
 # env >> /tmp/dhcpmasq.log
 # echo "-----" >> /tmp/dhcpmasq.log
 
+# The commented part is still a work in progress
+# TODO these variables for now are static, in future version must be passed as parameters
+# REMOTE_PATH="INSERT ABSOLUTE PATH OF THE FEDERATED COORDINATOR WHERE THE PYTHON SCRIPT IS LOCATED"
+# USER="INSERT USER HERE"
+
 if [[ -z "${DNSMASQ_REQUESTED_OPTIONS/ //}" ]]; then
     DNSMASQ_REQUESTED_OPTIONS="-"
 fi
@@ -45,6 +50,8 @@ fi
 if [ "$1" == "add" ]; then
   msg="|NEW|`uci get system.@system[0].hostname`.`uci get dhcp.@dnsmasq[0].domain`|DHCP|${DNSMASQ_REQUESTED_OPTIONS}|MUD|${DNSMASQ_MUD_URL}|${DNSMASQ_VENDOR_CLASS}|$2|$3|$4|"
   echo `date +%FT%T`$msg >> /var/log/dhcpmasq.txt
+  # Federated enable
+  # ./ip_communication_federated.sh -u $USER -p $REMOTE_PATH -m $msg 2> /dev/null
 fi
 
 if [ "$1" == "old" ]; then
@@ -54,5 +61,7 @@ fi
 
 if [ "$1" == "del" ]; then                                                                     
   msg="|DEL|`uci get system.@system[0].hostname`.`uci get dhcp.@dnsmasq[0].domain`|DHCP|${DNSMASQ_REQUESTED_OPTIONS}|MUD|${DNSMASQ_MUD_URL}|${DNSMASQ_VENDOR_CLASS}|$2|$3|$4|"
-  echo `date +%FT%T`$msg >> /var/log/dhcpmasq.txt                                   
+  echo `date +%FT%T`$msg >> /var/log/dhcpmasq.txt
+  # Federated enable
+  # ./ip_communication_federated.sh -u $USER -p $REMOTE_PATH -m $msg 2> /dev/null                                 
 fi
