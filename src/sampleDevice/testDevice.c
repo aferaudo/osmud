@@ -35,10 +35,12 @@
 #include "../oms_messages.h"
 #include "testDevice.h"
 
+#define BUFSIZE 4096
+
 /*
  * This uses the blocking call system() to run a shell script. This is for testing only
  */
-int installFirewallIPRule(char *srcIp, char *destIp, char *destPort, char *srcDevice, char *destDevice, char *protocol, char *ruleName, char *fwAction, , char *aclType)
+int installFirewallIPRule(char *srcIp, char *destIp, char *destPort, char *srcDevice, char *destDevice, char *protocol, char *ruleName, char *fwAction, char *aclType)
 {
 	char execBuf[1024];
 	int retval;

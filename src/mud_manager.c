@@ -226,7 +226,7 @@ int executeMudWithDhcpContext(DhcpEvent *dhcpEvent)
 													WAN_DEVICE_NAME,		/* destDevice - lan or wan */
 													"all", 					/* protocol - tcp/udp */
 													"REJECT-ALL", 			/* the name of the rule -- TODO: Better rule names by device name*/
-													"DENY",					/* ACCEPT or DENY or REJECT */
+													"DENY",					/* ACCEPT or DENY or REJECT  -- TODO: write drop instead of deny*/
 													"all",
 													dhcpEvent->hostName		/* hostname of the new device */ );
 			if (actionResult) {
