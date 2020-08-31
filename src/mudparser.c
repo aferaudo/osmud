@@ -25,7 +25,8 @@
 #include "json-c/json.h"
 #include "oms_utils.h"
 #include "mudparser.h"
-
+#include "oms_messages.h"
+#define BUFSIZE 4096
 
 AclEntry *getMudFileAcl(char *aclName, MudFileInfo *mudFile) {
 	int i;
@@ -46,7 +47,7 @@ AclEntry *getMudFileAcl(char *aclName, MudFileInfo *mudFile) {
 }
 
 void process_string(char *key, json_object *val, char *context, MudFileInfo *mfi, int state) {
-
+    // char execBuf [BUFSIZE];
         if (!strcmp(key, MUD_VERSION)) {
             mfi->mudVersion = copystring(json_object_get_string(val));
         } else if (!strcmp(key, MUD_URL)) {
@@ -108,12 +109,19 @@ void process_string(char *key, json_object *val, char *context, MudFileInfo *mfi
             mfi->acls[mfi->aclListCount-1].aceList[mfi->acls[mfi->aclListCount-1].aceCount-1].actionsForwarding = copystring(json_object_get_string(val));
         } else if (!strcmp(key, DIRECTION_INITIATED)) {
             mfi->acls[mfi->aclListCount-1].aceList[mfi->acls[mfi->aclListCount-1].aceCount-1].directionInitiated = copystring(json_object_get_string(val));
+        
 /*
         } else if (!strcmp(key, IETF_MUD_ACL)) {
             mfi->acls[mfi->aclListCount-1].aceList[mfi->acls[mfi->aclListCount-1].aceCount-1].ruleName = copystring(json_object_get_string(val));
         } else if (!strcmp(key, IETF_SAME_MANUFACTURER)) {
             mfi->acls[mfi->aclListCount-1].aceList[mfi->acls[mfi->aclListCount-1].aceCount-1].ruleName = copystring(json_object_get_string(val));
 */
+        }
+        // Maybe we should add here the new feature that we want to implement (please check the notes about ACLDNS rules)
+        else if (!strcmp(key, PACKET_RATE)) {
+            // logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL,key);
+            // logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, copystring(json_object_get_string(val)));
+            mfi->acls[mfi->aclListCount-1].aceList[mfi->acls[mfi->aclListCount-1].aceCount-1].packetRate = copystring(json_object_get_string(val));
         }
 #ifdef DEBUG_OSMUD
         else {
@@ -138,7 +146,6 @@ void incrementState(int state, MudFileInfo *mfi) {
 void processJson(json_object *jobj, char *context, int level, int state, MudFileInfo *mfi) {
     enum json_type type;
     int arraylen, i;
-
     json_object_object_foreach(jobj, key, val) {
 #ifdef DEBUG_OSMUD
         printf("Level: %d, State: %d, Context: %s, key=%s value = %s\n", level, state, context, key, json_object_get_string(val));
@@ -256,6 +263,8 @@ void freeMudFileInfo(MudFileInfo *mfi) {
             safe_free(mfi->acls[i].aceList[j].protocol);
             safe_free(mfi->acls[i].aceList[j].ruleName);
             safe_free(mfi->acls[i].aceList[j].upperPort);
+            // new field
+            safe_free(mfi->acls[i].aceList[j].packetRate);
         }
     }
 
@@ -306,6 +315,8 @@ MudFileInfo *createMfi() {
             mfi->acls[i].aceList[j].protocol = (char *)0;
             mfi->acls[i].aceList[j].ruleName = (char *)0;
             mfi->acls[i].aceList[j].upperPort = (char *)0;
+            //new field
+            mfi->acls[i].aceList[j].packetRate = (char *)0;
         }
     }
 
@@ -316,10 +327,8 @@ MudFileInfo *createMfi() {
 MudFileInfo* parseMudFile(char *mudFileWithPath) {
 
 	MudFileInfo *mfi = createMfi();
-
     char * string = readFileToString(mudFileWithPath);
     json_object * jobj = json_tokener_parse(string);
-
     processJson(jobj, "<root>", 0, 0, mfi);
 
     return mfi;

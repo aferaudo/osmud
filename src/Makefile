@@ -50,8 +50,8 @@ version.c:
 openwrt.o:      openwrt/openwrt.c
 	$(CC) $(CFLAGS) -c -o openwrt.o openwrt/openwrt.c
 
-testDevice.o:      sampleDevice/testDevice.c
-	$(CC) $(CFLAGS) -c -o testDevice.o sampleDevice/testDevice.c
+testDevice.o:      router-machine/testDevice.c
+	$(CC) $(CFLAGS) -c -o testDevice.o router-machine/testDevice.c
 
 osmud:	 osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o openwrt.o mudparser.o mud_manager.o version.o
 	$(CC) $(CFLAGS) $(LDFLAGS) osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o openwrt.o mudparser.o mud_manager.o version.o -o osmud -ljson-c -lcurl

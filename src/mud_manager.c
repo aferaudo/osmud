@@ -35,6 +35,8 @@
 #include "mud_manager.h"
 #include "mudparser.h"
 
+#define BUFSIZE 4096
+
 extern char *dnsWhiteListFile;
 extern int noFailOnMudValidation;
 
@@ -61,7 +63,6 @@ void buildDhcpEventsLogMsg(char *buf, int bufSize)
 int buildPortRange(char *portBuf, int portBufSize, AceEntry *ace)
 {
 	int retval = 0; /* Return > 0 if there is an error with port assignments */
-
 	snprintf(portBuf, portBufSize, "%s:%s", ace->lowerPort, ace->upperPort);
 	portBuf[portBufSize-1] = '\0';
 
@@ -88,6 +89,12 @@ int processFromAccess(char *aclName, char *aclType, AclEntry *acl, DhcpEvent *ev
 
     		dnsInfo = resolveDnsEntryToIp(acl->aceList[i].dnsName);
 
+			// Debug new field
+			// it is possible that the new field is not specified
+			if(acl->aceList[i].packetRate) {
+				logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_DEVICE_INTERFACE, acl->aceList[i].packetRate);
+			}
+
     		// Need to check a return code to make sure the rule got applied correctly
     		installDnsRule(dnsInfo->domainName, event->ipAddress, event->macAddress, event->hostName, dnsWhiteListFile);
 
@@ -97,9 +104,10 @@ int processFromAccess(char *aclName, char *aclType, AclEntry *acl, DhcpEvent *ev
     			actionResult = installFirewallIPRule(event->ipAddress,
     													dnsInfo->ipList[j],
 														portRangeBuffer,
-														LAN_DEVICE_NAME,
-														WAN_DEVICE_NAME,
+														LAN_DEVICE_NAME,				/* srcDevice - lan or wan */
+														WAN_DEVICE_NAME,				/* dstDevice - lan or wan */
 														acl->aceList[i].protocol,
+														acl->aceList[i].packetRate, 	/*outgoing packets per second*/
 														acl->aceList[i].ruleName,
 														acl->aceList[i].actionsForwarding,
 														aclType, event->hostName);
@@ -151,6 +159,7 @@ int processToAccess(char *aclName, char *aclType, AclEntry *acl, DhcpEvent *even
 														WAN_DEVICE_NAME, 					/* srcDevice - lan or wan */
 														LAN_DEVICE_NAME,					/* destDevice - lan or wan */
 														acl->aceList[i].protocol, 			/* protocol - tcp/udp */
+														acl->aceList[i].packetRate,			/* here packetRate is going to be null*/
 														acl->aceList[i].ruleName, 			/* the name of the rule -- TODO: Better rule names by device name*/
 														acl->aceList[i].actionsForwarding,	/* ACCEPT or REJECT */
 														aclType,
@@ -177,6 +186,8 @@ int executeMudWithDhcpContext(DhcpEvent *dhcpEvent)
 	int i;
 	int retval = 0; // non-zero indicates errors
 	int actionResult = 0;
+	char execBuf[BUFSIZE];
+	char rejectRuleName[BUFSIZE];
 
 	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, "IN ****NEW**** executeMudWithDhcpContext()");
 
@@ -185,13 +196,18 @@ int executeMudWithDhcpContext(DhcpEvent *dhcpEvent)
 	installMudDbDeviceEntry(mudFileDataDirectory, dhcpEvent->ipAddress, dhcpEvent->macAddress,
 			dhcpEvent->mudFileURL, dhcpEvent->mudFileStorageLocation, dhcpEvent->hostName);
 
+	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL,dhcpEvent->mudFileStorageLocation);
 	MudFileInfo *mudFile = parseMudFile(dhcpEvent->mudFileStorageLocation);
 
 	// Loop over mud file and carry out actions
 	if (mudFile) {
 			// First, remove any prior entry for this device in case a NEW event happens for an existing configured device
 			removeFirewallIPRule(dhcpEvent->ipAddress, dhcpEvent->macAddress);
-
+			// MY LOGGING CODE
+			snprintf(execBuf, BUFSIZE, "mudfile %d %d %s", mudFile->fromAccessListCount, mudFile->toAccessListCount, mudFile->mudUrl);
+			execBuf[BUFSIZE-1] = '\0';
+			logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL,execBuf);
+			
 			// Second, iterate over the MUD file and apply new rules
 		    for (i = 0; i < mudFile->fromAccessListCount; i++) {
 		    	if (!processFromAccess(mudFile->fromAccessList[i].aclName,
@@ -219,14 +235,16 @@ int executeMudWithDhcpContext(DhcpEvent *dhcpEvent)
 
 		    // Install default rule to block all traffic from this IP address unless allowed in the MUD file
 		    // ORDER MATTERS - this rule needs to be installed after all of the individual allow/deny rules
+			snprintf(rejectRuleName, BUFSIZE, "DROP-ALL-%s", dhcpEvent->hostName);
 			actionResult = installFirewallIPRule(dhcpEvent->ipAddress, 		/* srcIp */
 													"any", 					/* destIp */
 													"any",		 			/* destPort */
 													LAN_DEVICE_NAME, 		/* srcDevice - lan or wan */
 													WAN_DEVICE_NAME,		/* destDevice - lan or wan */
 													"all", 					/* protocol - tcp/udp */
-													"REJECT-ALL", 			/* the name of the rule -- TODO: Better rule names by device name*/
-													"DENY",					/* ACCEPT or DENY or REJECT  -- TODO: write drop instead of deny*/
+													NULL,					/* packet rate not important in such a case, how should we behave*/
+													rejectRuleName, 		/* the name of the rule -- TODO: Better rule names by device name*/
+													"DROP",					/* ACCEPT or DROP or REJECT*/
 													"all",
 													dhcpEvent->hostName		/* hostname of the new device */ );
 			if (actionResult) {
@@ -281,7 +299,6 @@ void executeNewDhcpAction(DhcpEvent *dhcpEvent)
 			{
 
 				logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_MUD_FILE, "IN ****NEW**** MUD and SIG FILE RETRIEVED!!!");
-
 				if ((validateMudFileWithSig(dhcpEvent) == VALID_MUD_FILE_SIG)
 					|| (noFailOnMudValidation))
 				{

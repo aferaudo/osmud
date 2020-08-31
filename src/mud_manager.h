@@ -43,8 +43,8 @@ extern char *dhcpEventFile;
 extern char *osmudPidFile;
 extern char *osMudLogFile;
 
-/* These prototypes are intended to be implemented by a device specific implementation and not in the mud manager */
-int installFirewallIPRule(char *srcIp, char *destIp, char *destPort, char *srcDevice, char *destDevice, char *protocol, char *ruleName, char *fwAction, char *aclType, char* hostName);
+/* These prototypes are intended to be implemented by a device specific implementation and not in the mud manager */ /*new field here*/
+int installFirewallIPRule(char *srcIp, char *destIp, char *destPort, char *srcDevice, char *destDevice, char *protocol, char *packetRate, char *ruleName, char *fwAction, char *aclType, char* hostName);
 int removeFirewallIPRule(char *ipAddr, char *macAddress);
 int installMudDbDeviceEntry(char *mudDbDir, char *ipAddr, char *macAddress, char *mudUrl, char *mudLocalFile, char *hostName);
 int removeMudDbDeviceEntry(char *mudDbDir, char *ipAddr, char *macAddress);

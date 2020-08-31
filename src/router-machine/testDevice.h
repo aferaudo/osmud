@@ -16,6 +16,6 @@
 #ifndef _OMS_OPENWRT
 #define _OMS_OPENWRT
 
-#define UCI_FIREWALL_SCRIPT "/usr/local/bin/create_ip_fw_rule.sh"
+#define IPTABLES_FIREWALL_SCRIPT "router-machine/create_iptables_fw_rule.sh"
 
 #endif
