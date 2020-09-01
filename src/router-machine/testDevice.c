@@ -105,21 +105,37 @@ int installFirewallIPRule(char *srcIp, char *destIp, char *destPort, char *srcDe
 			getProtocolName(protocol), ruleName, 
 			getActionString(fwAction), getProtocolFamily(aclType),
 			hostname, packetRate);
+	execBuf[BUFSIZE-1] = '\0';
 
 	retval = system(execBuf);
 
-	// return retval;
-	// sprintf(execBuf, "RULE to insert %s ; %s ; %s ; all ; %s ; %s ; %s ; packet-rate: %s; %s ; %s ; %s", srcDevice, destDevice, srcIp, destIp, destPort,
-	//  		protocol, packetRate, ruleName, fwAction, aclType);
-
+	// TODO: to remove
 	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, execBuf);
+
+	if (retval) {
+		logOmsGeneralMessage(OMS_ERROR, OMS_SUBSYS_DEVICE_INTERFACE, execBuf);
+	}
+
 	return retval;
 }
 
-// TODO: to implement
 int removeFirewallIPRule(char *ipAddr, char *macAddress){
-	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, "RemoveFirewallIPRule method has been called");
-	return 0;
+	// TODO: implement removing by macAddress
+	char execBuf[1024];
+	int retval;
+	sprintf(execBuf,"%s -i %s", IPTABLES_FIREWALL_REMOVE_SCRIPT, ipAddr);
+	execBuf[BUFSIZE-1] = '\0';
+
+	retval = system(execBuf);
+
+	// TODO: to remove
+	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, execBuf);
+
+	if (retval) {
+		logOmsGeneralMessage(OMS_ERROR, OMS_SUBSYS_DEVICE_INTERFACE, execBuf);
+	}
+
+	return retval;
 }
 
 // TODO: Both of these need to be threadsafe with regard to read/write operations on the dnsFileName
@@ -182,28 +198,70 @@ int verifyCmsSignature(char *mudFileLocation, char *mudSigFileLocation)
 
 }
 
-// TODO: to implement
 int commitAndApplyFirewallRules(){
-	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, "commitAndApplyFirewallRules method has been called");
-	return 0;
+	int retval;
+
+	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, IPTABLES_FIREWALL_COMMIT_SCRIPT);
+	retval = system(IPTABLES_FIREWALL_COMMIT_SCRIPT);
+
+	if (retval) {
+		logOmsGeneralMessage(OMS_ERROR, OMS_SUBSYS_DEVICE_INTERFACE, IPTABLES_FIREWALL_COMMIT_SCRIPT);
+	}
+	return retval;
 }
 
-// TODO: to implement
 int rollbackFirewallConfiguration(){
-	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, "rollbackFirewallConfiguration method has been called");
-	return 0;
+	int retval;
+
+	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, IPTABLES_FIREWALL_ROLLBACK_SCRIPT);
+	retval = system(IPTABLES_FIREWALL_ROLLBACK_SCRIPT);
+
+	if (retval) {
+		logOmsGeneralMessage(OMS_ERROR, OMS_SUBSYS_DEVICE_INTERFACE, IPTABLES_FIREWALL_ROLLBACK_SCRIPT);
+	}
+	return retval;
 }
 
-// TODO: to implement
-int installMudDbDeviceEntry(char *mudDbDir, char *ipAddr, char *macAddress, char *mudUrl, char *mudLocalFile, char *hostName){
-	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, "installMUDDbDeviceEntry method has been called");
-	return 0;
+// Script used is the same as the one used for openwrt platforms (with some corrections)
+int installMudDbDeviceEntry(char *mudDbDir, char *ipAddr, char *macAddress, char *mudUrl, char *mudLocalFile, char *hostName)
+{
+	char execBuf[BUFSIZE];
+	int retval;
+
+	snprintf(execBuf, BUFSIZE, "%s -d %s/%s -i %s -m %s -c %s -u %s -f %s", MUD_DB_CREATE_SCRIPT, mudDbDir, MUD_STATE_FILE, ipAddr,
+			macAddress,
+			(hostName?hostName:"-"),
+			(mudUrl?mudUrl:"-"),
+			(mudLocalFile?mudLocalFile:"-"));
+	execBuf[BUFSIZE-1] = '\0';
+
+	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, execBuf);
+	retval = system(execBuf);
+
+	if (retval) {
+		logOmsGeneralMessage(OMS_ERROR, OMS_SUBSYS_DEVICE_INTERFACE, execBuf);
+	}
+	return retval;
 }
 
-// TODO: to implement
-int removeMudDbDeviceEntry(char *mudDbDir, char *ipAddr, char *macAddress){
-	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, "removeMUDDbDeviceEntry method has been called");
-	return 0;
+
+// Script used is the same as the one used for openwrt platforms
+int removeMudDbDeviceEntry(char *mudDbDir, char *ipAddr, char *macAddress)
+{
+	char execBuf[BUFSIZE];
+	int retval;
+
+	snprintf(execBuf, BUFSIZE, "%s -d %s/%s -i %s -m %s", MUD_DB_REMOVE_SCRIPT, mudDbDir, MUD_STATE_FILE, ipAddr, macAddress);
+	execBuf[BUFSIZE-1] = '\0';
+
+	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, execBuf);
+	retval = system(execBuf);
+	/* retval = run_command_with_output_logged(execBuf); */
+
+	if (retval) {
+		logOmsGeneralMessage(OMS_ERROR, OMS_SUBSYS_DEVICE_INTERFACE, execBuf);
+	}
+	return retval;
 }
 
 /*

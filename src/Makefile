@@ -21,7 +21,9 @@ all: osmud
 CC = gcc
 CFLAGS = -Wall -g -std=c99 -D_XOPEN_SOURCE=600 -DDEBUG
 LDFLAGS = -ljson-c -lcurl
- 
+IPTABLES_DIR = iptables_rules
+ODIR = odir
+
 # This variable identifies all header files in the directory; we use it to create a dependency chain between the object files and the source files
 # This approach will re-build your application whenever any header file changes. In a more complex application, such behavior is often undesirable
 DEPS = $(wildcard *.h)
@@ -57,6 +59,7 @@ osmud:	 osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o openwrt.o mudpars
 	$(CC) $(CFLAGS) $(LDFLAGS) osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o openwrt.o mudparser.o mud_manager.o version.o -o osmud -ljson-c -lcurl
 
 osmud-generic:	 osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o testDevice.o mudparser.o mud_manager.o version.o
+	@ mkdir -p $(IPTABLES_DIR)
 	$(CC) $(CFLAGS) $(LDFLAGS) osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o testDevice.o mudparser.o mud_manager.o version.o -o osmud -ljson-c -lcurl
  
 # To clean build artifacts, we specify a 'clean' rule, and use PHONY to indicate that this rule never matches with a potential file in the directory

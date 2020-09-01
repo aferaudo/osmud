@@ -17,5 +17,14 @@
 #define _OMS_OPENWRT
 
 #define IPTABLES_FIREWALL_SCRIPT "router-machine/create_iptables_fw_rule.sh"
+#define IPTABLES_FIREWALL_REMOVE_SCRIPT "router-machine/remove_all_iptables_fw_rule.sh"
+
+#define IPTABLES_FIREWALL_COMMIT_SCRIPT "router-machine/commit_iptables_fw_rules.sh"
+#define IPTABLES_FIREWALL_ROLLBACK_SCRIPT "router-machine/rollback_iptables_fw_rules.sh"
+
+#define MUD_DB_CREATE_SCRIPT "router-machine/create_mud_db_entry.sh"
+#define MUD_DB_REMOVE_SCRIPT "router-machine/remove_mud_db_entry.sh"
+
+#define MUD_STATE_FILE "mudStateFile.txt"
 
 #endif
