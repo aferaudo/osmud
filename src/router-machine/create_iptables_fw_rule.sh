@@ -112,40 +112,58 @@ FINAL_HOST_NAME="mud_${HOST_NAME}_${RULE_NAME}"
 
 IPTABLES_RULE=""
 
+# A MUD file defines rules for incoming packets destinated for another host (external to the network)
+CHAIN="FORWARD"
+
+IP_ADDRESSES=""
+PROTOCOL=""
+PORTS=""
+
 
 # All the rules will be appended!
 if [ ${FAMILY} == 'ipv6' ]; then
-    IPTABLES_RULE="ip6tables -A"
+    IPTABLES_RULE="ip6tables -A ${CHAIN}"
 else
-    IPTABLES_RULE="iptables -A"
+    IPTABLES_RULE="iptables -A ${CHAIN}"
 fi
 
-# Source and destination zone should be used for something (e.g. to choose the rigth chain)
+# Source ip address
+IP_ADDRESSES="-s ${SRC_IP}"
+
+# Defining packet rate for outgoing packets from that SRC
+# TODO It should be noted that packet rate is defined only at ipv4 layer. For a more fine grained control,
+# we should define it in other layers as well (e.g. syn flooding)
+if [ ${PACKET_RATE} != '(null)' ]; then
+    # By default the initial burst limit is set to 5 + packetrate
+    BURST_LIMIT=`expr 5 + $PACKET_RATE`
+    eval "${IPTABLES_RULE} ${IP_ADDRESSES} -m limit --limit ${PACKET_RATE}/s --limit-burst ${BURST_LIMIT} -j ${TARGET}"
+fi
+
+if [ ${DEST_IP} != 'any' ]; then
+    IP_ADDRESSES="${IP_ADDRESSES} -d ${DEST_IP}"
+fi
+
+
+# Source and destination zone should be used for something (e.g. to choose the interfaces direction)
 # TODO implement this part, once you know the network structure
 
+PROTOCOL="-p ${PROTO}"
 
-if [ ${PROTO} != 'all' ]; then
-    IPTABLES_RULE="${IPTABLES_RULE} -p ${PROTO}"
-
-    # This parameters can be specified only if the protocol has been specified (that's how iptables works)
+if [ ${PROTO} == 'tcp' -o ${PROTO} == 'udp' ]; then
+    
+    # This parameters can be specified only if the protocol has been specified (that's how iptables works).
+    # In particular, --sport and --dport are defined only for TCP and UDP protocol
     if [ ${SRC_PORT} != 'any' ]; then
-        IPTABLES_RULE="${IPTABLES_RULE} --sport ${SRC_PORT}"
+        PORTS="${PORTS} --sport ${SRC_PORT}"
     fi
 
     if [ ${DEST_PORT} != 'any' ]; then
-        IPTABLES_RULE="${IPTABLES_RULE} --dport ${DEST_PORT}"
+        PORTS="${PORTS} --dport ${DEST_PORT}"
     fi
 fi
 
-IPTABLES_RULE="${IPTABLES_RULE} -s ${SRC_IP}"
 
-if [ ${DEST_IP} != 'any' ]; then
-    IPTABLES_RULE="${IPTABLES_RULE} -d ${DEST_IP}"
-fi
-
-# TODO implement packet rate part
-
-IPTABLES_RULE="${IPTABLES_RULE} -j ${TARGET}"
-echo $IPTABLES_RULE >> iptables_testing.txt
+IPTABLES_RULE="${IPTABLES_RULE} ${PROTOCOL} ${IP_ADDRESSES} ${PORTS} -j ${TARGET}"
+eval $IPTABLES_RULE
 
 exit 0

@@ -13,10 +13,6 @@
  * limitations under the License.
  */
 
-/*
- * OpenWRT specific implementation of MUD rulesets
- */
-
 
 /* Import function prototypes acting as the implementation interface
  * from the osmud manager to a specific physical device.
@@ -38,8 +34,6 @@
 
 #define BUFSIZE 4096
 
-// files location:
-// /home/angelo/Desktop/internship_testing/osmud_file_testing
 
 char *getProtocolName(const char *protocolNumber)
 {
@@ -74,7 +68,6 @@ char *getProtocolFamily(const char *aclType)
 {
 	if (!aclType)
 		return "all";
-
 	if (!strcmpi(aclType, "all")) {
 		return "all";
 	} else if (!strcmpi(aclType, "ipv6-acl")) {
