@@ -83,23 +83,22 @@ char *getPortRangeFixed(char *portRange)
 	
 }
 
-
 /*
  * This uses the blocking call system() to run a shell script. This is for testing only
  */
-int installFirewallIPRule(char *srcIp, char *destIp, char *destPort, char *srcDevice, char *destDevice, char *protocol, char *packetRate, char *ruleName, char *fwAction, char *aclType, char *hostname)
+int installFirewallIPRule(char *srcIp, char *destIp, char *destPort, char *srcDevice, 
+			char *destDevice, char *protocol, char *packetRate, char *byteRate, char *ruleName, 
+			char *fwAction, char *aclType, char *hostname)
 {
-	char execBuf[1024];
+	char execBuf[BUFSIZE];
 	int retval;
-
-	sprintf(execBuf, "%s -s %s -d %s -i %s -a any -j %s -b %s -p %s -n %s -t %s -f %s -c %s -r \"%s\"", 
+	sprintf(execBuf, "%s -s %s -d %s -i %s -a any -j %s -b %s -p %s -n %s -t %s -f %s -c %s -r \"%s\" -e \"%s\"", 
 			IPTABLES_FIREWALL_SCRIPT, srcDevice, 
 			destDevice, srcIp, destIp, getPortRangeFixed(destPort),
 			getProtocolName(protocol), ruleName, 
 			getActionString(fwAction), getProtocolFamily(aclType),
-			hostname, packetRate);
+			hostname, packetRate, byteRate);
 	execBuf[BUFSIZE-1] = '\0';
-
 	retval = system(execBuf);
 
 	// TODO: to remove
@@ -131,8 +130,8 @@ int removeFirewallIPRule(char *ipAddr, char *macAddress){
 	return retval;
 }
 
-// TODO: Both of these need to be threadsafe with regard to read/write operations on the dnsFileName
 
+// TODO: Both of these need to be threadsafe with regard to read/write operations on the dnsFileName
 // Appends a DNS entry to the DNS whitelist
 int installDnsRule(char *targetDomainName, char *srcIpAddr, char *srcMacAddr, char *srcHostName, char *dnsFileNameWithPath)
 {

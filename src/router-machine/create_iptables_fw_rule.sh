@@ -33,10 +33,11 @@ DEST_PORT=""
 RULE_NAME=""
 HOST_NAME=""
 FAMILY=""
-PACKET_RATE=""  # New field
+PACKET_RATE=""  # New field -r
+BYTE_RATE=""  # New field -e
 
 
-while getopts 'ht:p:s:i:a:d:j:b:n:f:c:r:' option; do
+while getopts 'ht:p:s:i:a:d:j:b:n:f:c:r:e:' option; do
     case "${option}" in
 	t) TARGET=$OPTARG;;
 	f) FAMILY=$OPTARG;;
@@ -50,6 +51,7 @@ while getopts 'ht:p:s:i:a:d:j:b:n:f:c:r:' option; do
     b) DEST_PORT=$OPTARG;;
     c) HOST_NAME=$OPTARG;;
     r) PACKET_RATE=$OPTARG;;
+    e) BYTE_RATE=$OPTARG;;
 	h | *) usage;;
     esac
 done
@@ -104,43 +106,131 @@ if [[ -z "${DEST_PORT/ //}" ]]; then
     echo "ERROR: Please specify dest port or 'any'\n"
     exit 1
 fi
-
 # The control is not true for the packet rate, because it could be null. 
 # In such a case even the rule production changes
+
+
+
+covertMeasureInByte() {
+    # This method supports only kb and Mb. All the others possibility are directly considered as seconds
+    
+    case "${TO_BYTE}" in
+    "kb")
+        CONVERSION_FACTOR=1000 # in Decimal
+        # CONVERSION_FACTOR=1024 # in Binary
+        ;;
+    "Mb") 
+        CONVERSION_FACTOR=1000000 # in Decimal
+        # CONVERSION_FACTOR=1048576 # in binary
+        ;;
+    *)
+        # Here we leave everything as it is
+        CONVERSION_FACTOR=1
+        ;;
+    esac
+}
+
+convertRateInSec () {
+    # Convert Rate in second. Possible values: /minute, /hour, /day
+    local RATE=$(echo ${BYTE_RATE} | awk -F/ '{print $2}')
+    local VALUE=$(echo $BYTE_RATE | grep -o '[0-9]\+') # Obatains onlyu the numbers
+    
+    TO_BYTE=$(echo $BYTE_RATE | awk -F/ '{print $1}' | sed "s/$VALUE//g")
+    covertMeasureInByte
+    
+    case "${RATE}" in
+    "minute")
+        VALUE=$(echo "scale=2; ${VALUE} * ${CONVERSION_FACTOR} / 60" | bc -l)
+        ;;
+    "hour") 
+        VALUE=$(echo "scale=2; ${VALUE} * ${CONVERSION_FACTOR} / 3600" | bc -l)
+        ;;
+    "day") 
+        VALUE=$(echo "scale=2; ${VALUE} * ${CONVERSION_FACTOR} / 86400" | bc -l)
+        ;;
+    *)
+        ;;
+    esac
+
+    RATE="second"
+    
+    # Rounding the value
+    VALUE=$(echo "(${VALUE}+0.5)/1" | bc)
+
+    BYTE_RATE="${VALUE}b/$RATE"
+}
+
 
 FINAL_HOST_NAME="mud_${HOST_NAME}_${RULE_NAME}"
 
 IPTABLES_RULE=""
 
 # A MUD file defines rules for incoming packets destinated for another host (external to the network)
-CHAIN="FORWARD"
+CHAIN="FORWARD" # First chain: checking packet and byte rate and jump to the next chain
+MUD_CHAIN="MUD_CHAIN" # Second chain accept or drop the traffic
+
+# Create mudfile chain, if exists, redirect the error on /dev/null
+iptables -N $MUD_CHAIN > /dev/null 2>&1
+
 
 IP_ADDRESSES=""
+MODES=""
 PROTOCOL=""
 PORTS=""
+ADDITIONAL_FIELDS=""
 
+# Chain organisation
+# This must be defined, because a custom chain does not have default policy.
+# This could represent a probelm in case of externa ip addresses, for which a default policy is not defined by MUD!
+if [ "${SRC}" = "wan" ]; then
+    MUD_CHAIN=$CHAIN
+fi
 
-# All the rules will be appended!
-if [ ${FAMILY} == 'ipv6' ]; then
-    IPTABLES_RULE="ip6tables -A ${CHAIN}"
+# Defining the IP protocol
+if [ "${FAMILY}" = "ipv6" ]; then
+    IPTABLES_RULE="ip6tables"
 else
-    IPTABLES_RULE="iptables -A ${CHAIN}"
+    IPTABLES_RULE="iptables"
 fi
 
 # Source ip address
 IP_ADDRESSES="-s ${SRC_IP}"
+MODES="srcip"
 
-# Defining packet rate for outgoing packets from that SRC
-# TODO It should be noted that packet rate is defined only at ipv4 layer. For a more fine grained control,
-# we should define it in other layers as well (e.g. syn flooding)
-if [ ${PACKET_RATE} != '(null)' ]; then
-    # By default the initial burst limit is set to 5 + packetrate
-    BURST_LIMIT=`expr 5 + $PACKET_RATE`
-    eval "${IPTABLES_RULE} ${IP_ADDRESSES} -m limit --limit ${PACKET_RATE}/s --limit-burst ${BURST_LIMIT} -j ${TARGET}"
+# Creating general rule to jump at MUD_CHAIN
+eval "${IPTABLES_RULE} -C ${CHAIN} ${IP_ADDRESSES} -j ${MUD_CHAIN}" > /dev/null 2>&1
+if [ $? -eq 1 -a "${SRC}" != "wan" ]; then
+    eval "${IPTABLES_RULE} -A ${CHAIN} ${IP_ADDRESSES} -j ${MUD_CHAIN}"
 fi
 
 if [ ${DEST_IP} != 'any' ]; then
     IP_ADDRESSES="${IP_ADDRESSES} -d ${DEST_IP}"
+    MODES="$MODES,dstip"
+fi
+
+
+# Defining packet rate for outgoing packets from that SRC
+if  [ -n "${PACKET_RATE/ //}" -a "${PACKET_RATE}" != '(null)' ]; then
+    # By default the initial burst limit is set to 5 + packetrate
+    BURST_LIMIT=`expr 5 + $(echo $PACKET_RATE | awk -F/ '{print $1}')`
+    
+    # Default rate per seconds
+    RATE=$(echo ${PACKET_RATE} | awk -F/ '{print $2}')
+    if [[ -z "${RATE/ //}" ]]; then
+        RATE="/second"
+    else
+        RATE=""
+    fi
+
+    ADDITIONAL_FIELDS="${ADDITIONAL_FIELDS} -m hashlimit --hashlimit-mode ${MODES} --hashlimit-upto ${PACKET_RATE}${RATE} --hashlimit-burst ${BURST_LIMIT} --hashlimit-name packet-rate-${SRC_IP}"
+fi
+
+if  [ -n "${BYTE_RATE/ //}" -a "${BYTE_RATE}" != '(null)' ] ; then
+    
+    # Converting rate in sec (Now even the unit is converted in byte)
+    convertRateInSec
+    
+    ADDITIONAL_FIELDS="${ADDITIONAL_FIELDS} -m hashlimit --hashlimit-mode ${MODES} --hashlimit-upto ${BYTE_RATE} --hashlimit-name byte-rate-${SRC_IP}"
 fi
 
 
@@ -162,8 +252,8 @@ if [ ${PROTO} == 'tcp' -o ${PROTO} == 'udp' ]; then
     fi
 fi
 
-
-IPTABLES_RULE="${IPTABLES_RULE} ${PROTOCOL} ${IP_ADDRESSES} ${PORTS} -j ${TARGET}"
-eval $IPTABLES_RULE
+# All rules will be appended on MUD_CHAIN
+IPTABLES_RULE="${IPTABLES_RULE} -A ${MUD_CHAIN} ${PROTOCOL} ${IP_ADDRESSES} ${PORTS} ${ADDITIONAL_FIELDS} -j ${TARGET}"
+eval "${IPTABLES_RULE}"
 
 exit 0

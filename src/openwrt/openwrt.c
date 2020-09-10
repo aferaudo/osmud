@@ -82,7 +82,7 @@ char *getProtocolFamily(const char *aclType)
 }
 
 int installFirewallIPRule(char *srcIp, char *destIp, char *destPort, char *srcDevice, char *destDevice, 
-	char *protocol, char *packetRate, char *ruleName, char *fwAction, 
+	char *protocol, char *packetRate, char *byteRate, char *ruleName, char *fwAction, 
 	char *aclType, char* hostName)
 {
 	char execBuf[BUFSIZE];

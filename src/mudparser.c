@@ -117,11 +117,13 @@ void process_string(char *key, json_object *val, char *context, MudFileInfo *mfi
             mfi->acls[mfi->aclListCount-1].aceList[mfi->acls[mfi->aclListCount-1].aceCount-1].ruleName = copystring(json_object_get_string(val));
 */
         }
-        // Maybe we should add here the new feature that we want to implement (please check the notes about ACLDNS rules)
+        // New Features
         else if (!strcmp(key, PACKET_RATE)) {
             // logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL,key);
             // logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, copystring(json_object_get_string(val)));
             mfi->acls[mfi->aclListCount-1].aceList[mfi->acls[mfi->aclListCount-1].aceCount-1].packetRate = copystring(json_object_get_string(val));
+        }else if (!strcmp(key, BYTE_RATE)) {
+            mfi->acls[mfi->aclListCount-1].aceList[mfi->acls[mfi->aclListCount-1].aceCount-1].byteRate = copystring(json_object_get_string(val));
         }
 #ifdef DEBUG_OSMUD
         else {
@@ -263,8 +265,9 @@ void freeMudFileInfo(MudFileInfo *mfi) {
             safe_free(mfi->acls[i].aceList[j].protocol);
             safe_free(mfi->acls[i].aceList[j].ruleName);
             safe_free(mfi->acls[i].aceList[j].upperPort);
-            // new field
+            // new fields
             safe_free(mfi->acls[i].aceList[j].packetRate);
+            safe_free(mfi->acls[i].aceList[j].byteRate);
         }
     }
 
@@ -315,8 +318,9 @@ MudFileInfo *createMfi() {
             mfi->acls[i].aceList[j].protocol = (char *)0;
             mfi->acls[i].aceList[j].ruleName = (char *)0;
             mfi->acls[i].aceList[j].upperPort = (char *)0;
-            //new field
+            //new fields
             mfi->acls[i].aceList[j].packetRate = (char *)0;
+            mfi->acls[i].aceList[j].byteRate = (char *)0;
         }
     }
 

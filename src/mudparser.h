@@ -113,7 +113,8 @@
 #define UPPER_PORT "upper-port"
 #define LOWER_PORT "lower-port"
 #define FORWARDING "forwarding"
-#define PACKET_RATE "packet-rate"
+#define PACKET_RATE "packet-rate" // new feature
+#define BYTE_RATE "byte-rate" //new feature
 #define IETF_MUD_ACL "ietf-mud:mud-acl"
 
 // description
@@ -156,8 +157,9 @@ typedef struct {
 	char *upperPort;
 	char *actionsForwarding;
 	char *directionInitiated;
-	// new field
+	// new fields
 	char *packetRate;
+	char *byteRate;
 } AceEntry;
 
 typedef struct {

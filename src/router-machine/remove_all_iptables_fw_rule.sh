@@ -26,13 +26,13 @@ if [[ -z "${DEVICE_IP/ //}" ]]; then
 fi
 
 
-# Remove procedure now is implemented for each chain: when the right chain is found, this could be changed
+# Remove procedure now is implemented for each chain + mud chain: when the right chain is found, this could be changed
 # We refer to the only filtering table
+MUD_CHAIN="MUD_CHAIN"
 
 # Check on INPUT chain
 LINE_NUMBERS=$(iptables -L INPUT --line-numbers | awk "/$DEVICE_IP/ {print\$1}")
 COUNTER=0
-
 for i in $LINE_NUMBERS
 do
     INDEX=`expr $i - $COUNTER`
@@ -42,7 +42,7 @@ done
 
 # Check on FORWARD chain
 LINE_NUMBERS=$(iptables -L FORWARD --line-numbers | awk "/$DEVICE_IP/ {print\$1}")
-
+COUNTER=0
 for i in $LINE_NUMBERS
 do
     INDEX=`expr $i - $COUNTER`
@@ -52,7 +52,7 @@ done
 
 # Check on OUTPUT chain
 LINE_NUMBERS=$(iptables -L OUTPUT --line-numbers | awk "/$DEVICE_IP/ {print\$1}")
-
+COUNTER=0
 for i in $LINE_NUMBERS
 do
     INDEX=`expr $i - $COUNTER`
@@ -60,3 +60,14 @@ do
     COUNTER=`expr $COUNTER + 1`
 done
 
+
+# Check on MUD chain
+# It generates one error at the beginning because the chain has not been created yet
+LINE_NUMBERS=$(iptables -L ${MUD_CHAIN} --line-numbers | awk "/$DEVICE_IP/ {print\$1}")
+COUNTER=0
+for i in $LINE_NUMBERS
+do
+    INDEX=`expr $i - $COUNTER`
+    iptables -D ${MUD_CHAIN} $INDEX
+    COUNTER=`expr $COUNTER + 1`
+done

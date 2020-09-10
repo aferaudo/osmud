@@ -89,12 +89,14 @@ int processFromAccess(char *aclName, char *aclType, AclEntry *acl, DhcpEvent *ev
 
     		dnsInfo = resolveDnsEntryToIp(acl->aceList[i].dnsName);
 
-			// Debug new field
-			// it is possible that the new field is not specified
+			// Debug new fields
+			// it is possible that the new fields are not specified
 			if(acl->aceList[i].packetRate) {
-				logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_DEVICE_INTERFACE, acl->aceList[i].packetRate);
+				logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_DEVICE_INTERFACE, acl->aceList[i].packetRate);
 			}
-
+			if(acl->aceList[i].byteRate){
+				logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_DEVICE_INTERFACE, acl->aceList[i].byteRate);
+			}
     		// Need to check a return code to make sure the rule got applied correctly
     		installDnsRule(dnsInfo->domainName, event->ipAddress, event->macAddress, event->hostName, dnsWhiteListFile);
 
@@ -108,6 +110,7 @@ int processFromAccess(char *aclName, char *aclType, AclEntry *acl, DhcpEvent *ev
 														WAN_DEVICE_NAME,				/* dstDevice - lan or wan */
 														acl->aceList[i].protocol,
 														acl->aceList[i].packetRate, 	/*outgoing packets per second*/
+														acl->aceList[i].byteRate,		/*outging byte rate*/
 														acl->aceList[i].ruleName,
 														acl->aceList[i].actionsForwarding,
 														aclType, event->hostName);
@@ -159,7 +162,8 @@ int processToAccess(char *aclName, char *aclType, AclEntry *acl, DhcpEvent *even
 														WAN_DEVICE_NAME, 					/* srcDevice - lan or wan */
 														LAN_DEVICE_NAME,					/* destDevice - lan or wan */
 														acl->aceList[i].protocol, 			/* protocol - tcp/udp */
-														acl->aceList[i].packetRate,			/* here packetRate is going to be null*/
+														acl->aceList[i].packetRate,			/* packet rate */
+														acl->aceList[i].byteRate,			/* byte rate */
 														acl->aceList[i].ruleName, 			/* the name of the rule -- TODO: Better rule names by device name*/
 														acl->aceList[i].actionsForwarding,	/* ACCEPT or REJECT */
 														aclType,
@@ -232,8 +236,10 @@ int executeMudWithDhcpContext(DhcpEvent *dhcpEvent)
 		    		retval = 1;
 		    	}
 		    }
-
-		    // Install default rule to block all traffic from this IP address unless allowed in the MUD file
+			// free memory
+			freeMudFileInfo(mudFile);
+		    
+			// Install default rule to block all traffic from this IP address unless allowed in the MUD file
 		    // ORDER MATTERS - this rule needs to be installed after all of the individual allow/deny rules
 			snprintf(rejectRuleName, BUFSIZE, "DROP-ALL-%s", dhcpEvent->hostName);
 			actionResult = installFirewallIPRule(dhcpEvent->ipAddress, 		/* srcIp */
@@ -243,6 +249,7 @@ int executeMudWithDhcpContext(DhcpEvent *dhcpEvent)
 													WAN_DEVICE_NAME,		/* destDevice - lan or wan */
 													"all", 					/* protocol - tcp/udp */
 													NULL,					/* packet rate not important in such a case, how should we behave*/
+													NULL,					/* byte rate not important here*/
 													rejectRuleName, 		/* the name of the rule -- TODO: Better rule names by device name*/
 													"DROP",					/* ACCEPT or DROP or REJECT*/
 													"all",
