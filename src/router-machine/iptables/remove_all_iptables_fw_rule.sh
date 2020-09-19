@@ -68,6 +68,6 @@ COUNTER=0
 for i in $LINE_NUMBERS
 do
     INDEX=`expr $i - $COUNTER`
-    iptables -D ${MUD_CHAIN} $INDEX
+    iptables -D ${MUD_CHAIN} $INDEX > /dev/null 2>&1
     COUNTER=`expr $COUNTER + 1`
 done

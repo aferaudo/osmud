@@ -52,15 +52,15 @@ version.c:
 openwrt.o:      openwrt/openwrt.c
 	$(CC) $(CFLAGS) -c -o openwrt.o openwrt/openwrt.c
 
-testDevice.o:      router-machine/testDevice.c
-	$(CC) $(CFLAGS) -c -o testDevice.o router-machine/testDevice.c
+linux.o:      router-machine/linux.c
+	$(CC) $(CFLAGS) -c -o linux.o router-machine/linux.c
 
 osmud:	 osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o openwrt.o mudparser.o mud_manager.o version.o
 	$(CC) $(CFLAGS) $(LDFLAGS) osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o openwrt.o mudparser.o mud_manager.o version.o -o osmud -ljson-c -lcurl
 
-osmud-generic:	 osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o testDevice.o mudparser.o mud_manager.o version.o
+osmud-generic:	 osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o linux.o mudparser.o mud_manager.o version.o
 	@ mkdir -p $(IPTABLES_DIR)
-	$(CC) $(CFLAGS) $(LDFLAGS) osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o testDevice.o mudparser.o mud_manager.o version.o -o osmud -ljson-c -lcurl
+	$(CC) $(CFLAGS) $(LDFLAGS) osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o linux.o mudparser.o mud_manager.o version.o -o osmud -ljson-c -lcurl
  
 # To clean build artifacts, we specify a 'clean' rule, and use PHONY to indicate that this rule never matches with a potential file in the directory
 .PHONY: clean

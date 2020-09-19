@@ -30,10 +30,11 @@
 #include "../mud_manager.h"
 #include "../oms_utils.h"
 #include "../oms_messages.h"
-#include "testDevice.h"
+#include "linux.h"
 
 #define BUFSIZE 4096
 
+extern char *ebpfPath;
 
 char *getProtocolName(const char *protocolNumber)
 {
@@ -92,18 +93,25 @@ int installFirewallIPRule(char *srcIp, char *destIp, char *destPort, char *srcDe
 {
 	char execBuf[BUFSIZE];
 	int retval;
-	sprintf(execBuf, "%s -s %s -d %s -i %s -a any -j %s -b %s -p %s -n %s -t %s -f %s -c %s -r \"%s\" -e \"%s\"", 
-			IPTABLES_FIREWALL_SCRIPT, srcDevice, 
-			destDevice, srcIp, destIp, getPortRangeFixed(destPort),
-			getProtocolName(protocol), ruleName, 
-			getActionString(fwAction), getProtocolFamily(aclType),
-			hostname, packetRate, byteRate);
-	execBuf[BUFSIZE-1] = '\0';
-	retval = system(execBuf);
+	if (ebpfPath) 
+	{
+		sprintf(execBuf, "calling ebpf method: %s", ebpfPath);
+		logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, execBuf);
+		retval = 0;
 
-	// TODO: to remove
-	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, execBuf);
+	}
+	else {
+		sprintf(execBuf, "%s -s %s -d %s -i %s -a any -j %s -b %s -p %s -n %s -t %s -f %s -c %s -r \"%s\" -e \"%s\"", 
+				IPTABLES_FIREWALL_SCRIPT, srcDevice, 
+				destDevice, srcIp, destIp, getPortRangeFixed(destPort),
+				getProtocolName(protocol), ruleName, 
+				getActionString(fwAction), getProtocolFamily(aclType),
+				hostname, packetRate, byteRate);
+		execBuf[BUFSIZE-1] = '\0';
+		retval = system(execBuf);
 
+		logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, execBuf);
+	}
 	if (retval) {
 		logOmsGeneralMessage(OMS_ERROR, OMS_SUBSYS_DEVICE_INTERFACE, execBuf);
 	}

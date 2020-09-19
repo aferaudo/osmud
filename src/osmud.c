@@ -49,6 +49,7 @@ char *osmudConfigFile = (char *)0;
 char *dhcpEventFile = (char *)0;
 char *osmudPidFile = (char *)0;
 char *osMudLogFile = (char *)0;
+char *ebpfPath = (char *)0;
 int noFailOnMudValidation = 0;
 
 int heartBeatCycle = 0; /* how many polling cycles have passed in this interval period*/
@@ -199,6 +200,7 @@ void printHelp()
 	printf("    -b <MUD file storage data directory>: set the directory path for MUD file storage\n");
 	printf("    -c <osMUD config file>: set the directory path and file for osMUD startup configuration file\n");
 	printf("    -l <osMUD logfile>: set the osMUD logger path and file for system event logging.\n");
+	printf("    -s tells to the MUD manager the ebpf program path (this feature is available only on Linux devices as alternative to the iptables)\n");
 	printf("    -v: display osmud version information and exit\n");
 }
 
@@ -268,7 +270,7 @@ int main(int argc, char* argv[])
     char *osLogLevel = NULL;
 
 	//TODO: Need option for logFileName, logToConsole, eventFileWithPath, logLevel (INFO|WARN|DEBUG)
-    while ((opt = getopt(argc, argv, "vidhkx:e:w:b:c:l:m:")) != -1) {
+    while ((opt = getopt(argc, argv, "vidhkx:e:w:b:c:l:m:s:")) != -1) {
         switch (opt) {
         case 'd':       debugMode = 1;
         				break;
@@ -296,7 +298,9 @@ int main(int argc, char* argv[])
 						break;
 		case 'm':		osLogLevel = copystring(optarg);
 						break;
-        default:
+        case 's':		ebpfPath = copystring(optarg);
+						break;
+		default:
             printHelp(); /* If you find an unknown option, do not start up */
             exit(EXIT_FAILURE);
         }
