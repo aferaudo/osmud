@@ -1,6 +1,8 @@
 #!/bin/bash
 
-# TODO Still in work in progress
+# Copyright (c) 2020
+# Author: Angelo Feraudo
+# starting from: https://github.com/osmud/osmud/blob/master/src/openwrt/create_ip_fw_rules.sh
 
 # This script is designed to work on a linux machine, which means to produce rules for
 # a linux firewall (netfilter)
@@ -18,7 +20,7 @@ BASEDIR=`dirname "$0"`
 usage() { 
   echo "Usage: 
 Required: -t <target_firewall_action> -n <rule-name> -i <src-ip> -a <src-port> 
-Optional: -p <proto> -s <src-zone>  -d <dest-zone> -j <dest-ip> -b <dest-port> -c <device host name> -r <packet rate>" 1>&2; 
+Optional: -p <proto> -s <src-zone>  -d <dest-zone> -j <dest-ip> -b <dest-port> -c <device host name> -r <packet rate> -e <byte rate>" 1>&2; 
   exit 0; 
 }
 

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Copyright (c) 2020
+# Author: Angelo Feraudo
+# starting from: https://github.com/osmud/osmud/blob/master/src/openwrt/remove_ip_fw_rules.sh
 # Removes all firewall rules involving the IP address
 # this script requires to be superuser
 

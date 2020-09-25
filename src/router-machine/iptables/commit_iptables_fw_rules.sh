@@ -1,10 +1,10 @@
 #!/bin/bash
+# Copyright (c) 2020
+# Author: Angelo Feraudo
+# starting from: https://github.com/osmud/osmud/blob/master/src/openwrt/commit_ip_fw_rules.sh
 
 # The commit in iptables saves the rules inserted in a file called /etc/iptables.rules
 
-# TODO: Problems to take into account:
-# Should we use the commit also as command executor? Execution of a sh file containing the iptables rules
-# Should we restart the firewall after this operation?
 
 iptables-save > iptables_rules/iptables.rules
 exit 0
