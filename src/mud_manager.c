@@ -212,6 +212,7 @@ int executeMudWithDhcpContext(DhcpEvent *dhcpEvent)
 			// Otherwise we would delete the rules inserted before!
 			if(!admin)
 				removeFirewallIPRule(dhcpEvent->ipAddress, dhcpEvent->macAddress);
+			admin = 0; // Reset for next files
 
 			// Second, iterate over the MUD file and apply new rules
 		    for (i = 0; i < mudFile->fromAccessListCount; i++) {
@@ -370,6 +371,9 @@ void executeNewDhcpAction(DhcpEvent *dhcpEvent)
 									* All files downloaded and signature valid.
 									* CALL INTERFACE TO CARRY OUT MUD ACTION HERE
 									*/
+									// This means that exisits a MUD file defined by the Administrator.
+									// So, we do not have to replace rules defined by the manufacturer
+									admin = 1;
 									executeMudWithDhcpContext(dhcpEvent);
 									installMudDbDeviceEntry(mudFileDataDirectory, dhcpEvent->ipAddress, dhcpEvent->macAddress,
 											dhcpEvent->mudFileURL, dhcpEvent->mudFileStorageLocation, dhcpEvent->hostName);
