@@ -30,11 +30,12 @@
 #include "../mud_manager.h"
 #include "../oms_utils.h"
 #include "../oms_messages.h"
+#include "../etc/interface_conf_parser.h"
 #include "linux.h"
 
 #define BUFSIZE 4096
 
-extern char *ebpfPath;
+Interfaces *interfaces = NULL;
 
 char *getProtocolName(const char *protocolNumber)
 {
@@ -95,7 +96,12 @@ int installFirewallIPRule(char *srcIp, char *destIp, char *destPort, char *srcDe
 	int retval;
 	if (ebpfPath) 
 	{
-		sprintf(execBuf, "calling ebpf method: %s", ebpfPath);
+		// Check config file only if not previously checked	
+		if(!interfaces)
+			// osmudConfigFile contains the path to the config file containing the internal an external conf
+			interfaces = get_interfaces(osmudConfigFile);
+		
+		sprintf(execBuf, "INSTALL: calling ebpf method: %s, interfaces: %s, %s\n", ebpfPath, interfaces->lan, interfaces->wan);
 		logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, execBuf);
 		retval = 0;
 
@@ -121,12 +127,27 @@ int installFirewallIPRule(char *srcIp, char *destIp, char *destPort, char *srcDe
 
 int removeFirewallIPRule(char *ipAddr, char *macAddress){
 	// TODO: implement removing by macAddress
+
 	char execBuf[1024];
 	int retval;
-	sprintf(execBuf,"%s -i %s", IPTABLES_FIREWALL_REMOVE_SCRIPT, ipAddr);
-	execBuf[BUFSIZE-1] = '\0';
+	if (ebpfPath) 
+	{
+		// Check config file only if not previously checked	
+		if(!interfaces)
+			// osmudConfigFile contains the path to the config file containing the internal an external conf
+			interfaces = get_interfaces(osmudConfigFile);
+		
+		sprintf(execBuf, "REMOVE: calling ebpf method: %s, interfaces: %s, %s\n", ebpfPath, interfaces->lan, interfaces->wan);
+		logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, execBuf);
+		retval = 0;
+	}
+	else {
 
-	retval = system(execBuf);
+		sprintf(execBuf,"%s -i %s", IPTABLES_FIREWALL_REMOVE_SCRIPT, ipAddr);
+		execBuf[BUFSIZE-1] = '\0';
+
+		retval = system(execBuf);
+	}
 
 	// TODO: to remove
 	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, execBuf);

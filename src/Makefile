@@ -21,6 +21,8 @@ all: osmud
 CC = gcc
 CFLAGS = -Wall -g -std=c99 -D_XOPEN_SOURCE=600 -DDEBUG
 LDFLAGS = -ljson-c -lcurl
+CFLAGSCONF = `pkg-config --cflags glib-2.0`
+LDFLAGSCONF = `pkg-config --libs glib-2.0`
 IPTABLES_DIR = iptables_rules
 ODIR = odir
 
@@ -52,15 +54,18 @@ version.c:
 openwrt.o:      openwrt/openwrt.c
 	$(CC) $(CFLAGS) -c -o openwrt.o openwrt/openwrt.c
 
-linux.o:      router-machine/linux.c
-	$(CC) $(CFLAGS) -c -o linux.o router-machine/linux.c
+config.o:		etc/interface_conf_parser.c
+	$(CC) $(CFLAGSCONF) etc/interface_conf_parser.c -c -o config.o
+
+linux.o:     	config.o router-machine/linux.c
+	$(CC) $(CFLAGS) $(CFLAGSCONF)  router-machine/linux.c -c -o linux.o
 
 osmud:	 osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o openwrt.o mudparser.o mud_manager.o version.o
 	$(CC) $(CFLAGS) $(LDFLAGS) osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o openwrt.o mudparser.o mud_manager.o version.o -o osmud -ljson-c -lcurl
 
-osmud-generic:	 osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o linux.o mudparser.o mud_manager.o version.o
+osmud-generic:	 osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o config.o linux.o mudparser.o mud_manager.o version.o
 	@ mkdir -p $(IPTABLES_DIR)
-	$(CC) $(CFLAGS) $(LDFLAGS) osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o linux.o mudparser.o mud_manager.o version.o -o osmud -ljson-c -lcurl
+	$(CC) $(CFLAGS) $(CFLAGSCONF) $(LDFLAGS)  osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o config.o linux.o mudparser.o mud_manager.o version.o -o osmud -ljson-c -lcurl $(LDFLAGSCONF)
  
 # To clean build artifacts, we specify a 'clean' rule, and use PHONY to indicate that this rule never matches with a potential file in the directory
 .PHONY: clean

@@ -36,7 +36,8 @@
 
 /* Default locations for osMUD resources based on OpenWRT */
 #define MUD_FILE_DIRECTORY "/var/state/osmud/mudfiles"
-#define BASECONFIGFILE "/etc/osmud.conf"
+#define BASECONFIGFILE "etc/osmud_interface.conf" // This parameter has been changed for interface support (ebpf)
+// #define BASECONFIGFILE "etc/osmud.conf"  // Real parameter
 #define DHCP_EVENT_FILE "/var/log/dhcpmasq.txt"
 #define PID_FILE "/var/run/osmud.pid"
 #define OSMUD_LOG_FILE "/var/log/osmud.log"

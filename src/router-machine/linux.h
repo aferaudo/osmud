@@ -27,4 +27,6 @@
 
 #define MUD_STATE_FILE "mudStateFile.txt"
 
+extern char *ebpfPath;
+
 #endif
