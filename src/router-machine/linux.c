@@ -88,12 +88,25 @@ char *getPortRangeFixed(char *portRange)
 /*
  * This uses the blocking call system() to run a shell script. This is for testing only
  */
-int installFirewallIPRule(char *srcIp, char *destIp, char *destPort, char *srcDevice, 
+int installFirewallIPRule(char *srcIp, char *destIp, char *port, char *srcDevice, 
 			char *destDevice, char *protocol, char *packetRate, char *byteRate, char *ruleName, 
 			char *fwAction, char *aclType, char *hostname)
 {
 	char execBuf[BUFSIZE];
 	int retval;
+
+	// The following parameter will be changed based on the direction: 
+	// WAN -> LAN : src_port = port; dest_port = 'any'
+	// LAN -> WAN : src_port = any; dest_port = port
+	char *src_port, *dest_port;
+	if(strcmp(LAN_DEVICE_NAME,srcDevice) == 0){
+		src_port = "any";
+		dest_port = getPortRangeFixed(port);
+	}else{
+		src_port = getPortRangeFixed(port);
+		dest_port = "any";
+	}
+	
 	if (ebpfPath) 
 	{
 		// Check config file only if not previously checked	
@@ -107,9 +120,9 @@ int installFirewallIPRule(char *srcIp, char *destIp, char *destPort, char *srcDe
 
 	}
 	else {
-		sprintf(execBuf, "%s -s %s -d %s -i %s -a any -j %s -b %s -p %s -n %s -t %s -f %s -c %s -r \"%s\" -e \"%s\"", 
+		sprintf(execBuf, "%s -s %s -d %s -i %s -a %s -j %s -b %s -p %s -n %s -t %s -f %s -c %s -r \"%s\" -e \"%s\"", 
 				IPTABLES_FIREWALL_SCRIPT, srcDevice, 
-				destDevice, srcIp, destIp, getPortRangeFixed(destPort),
+				destDevice, srcIp, src_port, destIp, dest_port,
 				getProtocolName(protocol), ruleName, 
 				getActionString(fwAction), getProtocolFamily(aclType),
 				hostname, packetRate, byteRate);

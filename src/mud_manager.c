@@ -65,7 +65,6 @@ int buildPortRange(char *portBuf, int portBufSize, AceEntry *ace)
 	int retval = 0; /* Return > 0 if there is an error with port assignments */
 	snprintf(portBuf, portBufSize, "%s:%s", ace->lowerPort, ace->upperPort);
 	portBuf[portBufSize-1] = '\0';
-
 	return retval;
 }
 
@@ -105,7 +104,7 @@ int processFromAccess(char *aclName, char *aclType, AclEntry *acl, DhcpEvent *ev
     			buildPortRange(portRangeBuffer, PORT_BUF_SIZE, &(acl->aceList[i]));
     			actionResult = installFirewallIPRule(event->ipAddress,
     													dnsInfo->ipList[j],
-														portRangeBuffer,
+														portRangeBuffer,				// dest-port range (because from device)
 														LAN_DEVICE_NAME,				/* srcDevice - lan or wan */
 														WAN_DEVICE_NAME,				/* dstDevice - lan or wan */
 														acl->aceList[i].protocol,
@@ -158,7 +157,7 @@ int processToAccess(char *aclName, char *aclType, AclEntry *acl, DhcpEvent *even
     			buildPortRange(portRangeBuffer, PORT_BUF_SIZE, &(acl->aceList[i]));
     			actionResult = installFirewallIPRule(dnsInfo->ipList[j], 					/* srcIp */
     													event->ipAddress, 					/* destIp */
-														portRangeBuffer,		 			/* destPort */
+														portRangeBuffer,		 			/* src-por range (because "to")*/
 														WAN_DEVICE_NAME, 					/* srcDevice - lan or wan */
 														LAN_DEVICE_NAME,					/* destDevice - lan or wan */
 														acl->aceList[i].protocol, 			/* protocol - tcp/udp */
