@@ -110,17 +110,25 @@ int installFirewallIPRule(char *srcIp, char *destIp, char *port, char *srcDevice
 	if (ebpfPath) 
 	{
 		// Check config file only if not previously checked	
+		// TODO use interfaces in general case
 		if(!interfaces)
 			// osmudConfigFile contains the path to the config file containing the internal an external conf
 			interfaces = get_interfaces(osmudConfigFile);
 		
-		sprintf(execBuf, "INSTALL: calling ebpf method: %s, interfaces: %s, %s\n", ebpfPath, interfaces->lan, interfaces->wan);
+		sprintf(execBuf, "%s -s %s -d %s -i %s -a %s -e %s -j %s -b %s -p %s -n %s -t %s -f %s -c %s -r \"%s\" -m \"%s\"", 
+				EBPF_FIREWALL_SCRIPT, srcDevice, 
+				destDevice, srcIp, src_port, ebpfPath, destIp, dest_port,
+				getProtocolName(protocol), ruleName, 
+				getActionString(fwAction), getProtocolFamily(aclType),
+				hostname, packetRate, byteRate);
+		execBuf[BUFSIZE-1] = '\0';
+		retval = system(execBuf);
 		logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, execBuf);
-		retval = 0;
 
 	}
 	else {
-		sprintf(execBuf, "%s -s %s -d %s -i %s -a %s -j %s -b %s -p %s -n %s -t %s -f %s -c %s -r \"%s\" -e \"%s\"", 
+		// By default the firewall used is Netfilter
+		sprintf(execBuf, "%s -s %s -d %s -i %s -a %s -j %s -b %s -p %s -n %s -t %s -f %s -c %s -r \"%s\" -m \"%s\"", 
 				IPTABLES_FIREWALL_SCRIPT, srcDevice, 
 				destDevice, srcIp, src_port, destIp, dest_port,
 				getProtocolName(protocol), ruleName, 
@@ -146,13 +154,14 @@ int removeFirewallIPRule(char *ipAddr, char *macAddress){
 	if (ebpfPath) 
 	{
 		// Check config file only if not previously checked	
+		// TODO Check interface in general case (Maybe they are not necessary)
 		if(!interfaces)
 			// osmudConfigFile contains the path to the config file containing the internal an external conf
 			interfaces = get_interfaces(osmudConfigFile);
 		
-		sprintf(execBuf, "REMOVE: calling ebpf method: %s, interfaces: %s, %s\n", ebpfPath, interfaces->lan, interfaces->wan);
-		logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, execBuf);
-		retval = 0;
+		sprintf(execBuf,"%s -i %s -e %s", EBPF_FIREWALL_REMOVE_SCRIPT, ipAddr, ebpfPath);
+		execBuf[BUFSIZE-1] = '\0';
+		retval = system(execBuf);
 	}
 	else {
 
@@ -235,8 +244,15 @@ int verifyCmsSignature(char *mudFileLocation, char *mudSigFileLocation)
 int commitAndApplyFirewallRules(){
 	int retval;
 
-	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, IPTABLES_FIREWALL_COMMIT_SCRIPT);
-	retval = system(IPTABLES_FIREWALL_COMMIT_SCRIPT);
+	
+	if(ebpfPath){
+		logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, EBPF_FIREWALL_COMMIT_SCRIPT);
+		retval = system(EBPF_FIREWALL_COMMIT_SCRIPT);
+	}else{
+		logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, IPTABLES_FIREWALL_COMMIT_SCRIPT);
+		retval = system(IPTABLES_FIREWALL_COMMIT_SCRIPT);
+	}
+	
 
 	if (retval) {
 		logOmsGeneralMessage(OMS_ERROR, OMS_SUBSYS_DEVICE_INTERFACE, IPTABLES_FIREWALL_COMMIT_SCRIPT);
@@ -246,9 +262,14 @@ int commitAndApplyFirewallRules(){
 
 int rollbackFirewallConfiguration(){
 	int retval;
+	if(ebpfPath){
+		logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, EBPF_FIREWALL_ROLLBACK_SCRIPT);
+		retval = system(EBPF_FIREWALL_ROLLBACK_SCRIPT);
 
-	logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, IPTABLES_FIREWALL_ROLLBACK_SCRIPT);
-	retval = system(IPTABLES_FIREWALL_ROLLBACK_SCRIPT);
+	}else {
+		logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, IPTABLES_FIREWALL_ROLLBACK_SCRIPT);
+		retval = system(IPTABLES_FIREWALL_ROLLBACK_SCRIPT);
+	}
 
 	if (retval) {
 		logOmsGeneralMessage(OMS_ERROR, OMS_SUBSYS_DEVICE_INTERFACE, IPTABLES_FIREWALL_ROLLBACK_SCRIPT);

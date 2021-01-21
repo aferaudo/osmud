@@ -20,7 +20,7 @@ BASEDIR=`dirname "$0"`
 usage() { 
   echo "Usage: 
 Required: -t <target_firewall_action> -n <rule-name> -i <src-ip> -a <src-port> 
-Optional: -p <proto> -s <src-zone>  -d <dest-zone> -j <dest-ip> -b <dest-port> -c <device host name> -r <packet rate> -e <byte rate>" 1>&2; 
+Optional: -p <proto> -s <src-zone>  -d <dest-zone> -j <dest-ip> -b <dest-port> -c <device host name> -r <packet rate> -m <byte rate>" 1>&2; 
   exit 0; 
 }
 
@@ -39,7 +39,7 @@ PACKET_RATE=""  # New field -r
 BYTE_RATE=""  # New field -e
 
 
-while getopts 'ht:p:s:i:a:d:j:b:n:f:c:r:e:' option; do
+while getopts 'ht:p:s:i:a:d:j:b:n:f:c:r:m:' option; do
     case "${option}" in
 	t) TARGET=$OPTARG;;
 	f) FAMILY=$OPTARG;;
@@ -53,7 +53,7 @@ while getopts 'ht:p:s:i:a:d:j:b:n:f:c:r:e:' option; do
     b) DEST_PORT=$OPTARG;;
     c) HOST_NAME=$OPTARG;;
     r) PACKET_RATE=$OPTARG;;
-    e) BYTE_RATE=$OPTARG;;
+    m) BYTE_RATE=$OPTARG;;
 	h | *) usage;;
     esac
 done

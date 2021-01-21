@@ -10,6 +10,6 @@
 
 
 iptables -F
-iptables-restore < iptables_rules/iptables.rules
+iptables-restore < rules/iptables.rules
 
 exit 0

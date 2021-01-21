@@ -6,5 +6,5 @@
 # The commit in iptables saves the rules inserted in a file called /etc/iptables.rules
 
 
-iptables-save > iptables_rules/iptables.rules
+iptables-save > rules/iptables.rules
 exit 0
