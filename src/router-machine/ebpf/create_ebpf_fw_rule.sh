@@ -109,10 +109,78 @@ if [[ -z "${EBPF_PROGRAM/ //}" ]]; then
     echo "ERROR: Please specify EBPF program path"
     exit 1
 fi
+
 # The control is not true for the packet rate, because it could be null. 
 # In such a case even the rule production changes
 
+
+
+
+convertMeasureInByte() {
+
+    local VALUE=$(echo $BYTE_RATE | grep -o '[0-9]\+')
+
+    local TO_BYTE=$(echo $BYTE_RATE | awk -F/ '{print $1}' | sed "s/$VALUE//g")
+
+    case "${TO_BYTE}" in
+    "kb")
+        BYTE=`expr ${VALUE} \* 1000` # in Decimal
+        # BYTE=1024 # in Binary
+        ;;
+    "Mb") 
+        BYTE=`expr ${VALUE} \* 1000000` # in Decimal
+        # BYTE=1048576 # in binary
+        ;;
+    *)
+        # Here we leave everything as it is
+        BYTE=${VALUE}
+        ;;
+    esac
+
+    # If window size as been defined by the packet rate, we should convert
+    # the byte rate in the correct metrics
+    if [ -n "${WINDOW_SIZE/ //}" ]; then
+        local RATE=$(echo ${BYTE_RATE} | awk -F/ '{print $2}')
+        case "${RATE}" in
+        "minute")
+            WINDOW_SIZE_BYTE="60";;
+        "hour") 
+            WINDOW_SIZE_BYTE="3600";;
+        "day") 
+            WINDOW_SIZE_BYTE="86400";;
+        *)
+            WINDOW_SIZE_BYTE="1";;
+        esac
+
+        FACTOR=$(echo ${WINDOW_SIZE} | awk '{print $2}')
+
+        # Create the right amount of byte based on the window defined
+        BYTE=$(echo "(${FACTOR}/${WINDOW_SIZE_BYTE})*${BYTE}" | bc -l)
+        BYTE=$(echo "scale=0; (${BYTE}+0.5)/1" | bc)
+    fi
+    
+}
+
+defineWindowSize() {
+    
+    # By default the window is set to 60 secs
+    case "${RATE}" in
+    "minute")
+        WINDOW_SIZE="-w 60";;
+    "hour") 
+        WINDOW_SIZE="-w 3600";;
+    "day") 
+        WINDOW_SIZE="-w 86400";;
+    *)
+        WINDOW_SIZE="-w 1";;
+    esac
+
+}
+
 PORTS=""
+OPTION_IP_SRC=""
+OPTION_IP_DEST=""
+ADDITIONAL_FIELDS=""
 
 if [ ${PROTO} == 'tcp' -o ${PROTO} == 'udp' ]; then
     
@@ -127,16 +195,63 @@ if [ ${PROTO} == 'tcp' -o ${PROTO} == 'udp' ]; then
     fi
 fi
 
-# TODO: Add byte and packet rate
+# Defining packet rate limit
+if  [ -n "${PACKET_RATE/ //}" -a "${PACKET_RATE}" != '(null)' ]; then
+    # Metrics that can be defined in MUD file are second/minute/hour/day
+    # Observation: EBPF-IOT supports only one window!
+    # So, packet and byte rate must have the same metric (per second/minute/hour/day)
+    
+
+    PACKET=$(echo ${PACKET_RATE} | awk -F/ '{print $1}')
+    RATE=$(echo ${PACKET_RATE} | awk -F/ '{print $2}')
+    
+    # Computing window size 
+    defineWindowSize
+
+    # -g|--max-packet-rate Specify maximum packet rate for MUD rule.
+    ADDITIONAL_FIELDS="$WINDOW_SIZE --max-packet-rate $PACKET"
+
+fi
+
+# Defining byte rate
+if  [ -n "${BYTE_RATE/ //}" -a "${BYTE_RATE}" != '(null)' ] ; then
+
+
+    if [ -z "${ADDITIONAL_FIELDS/ //}" ]; then
+        # Computing window size (By default the window size used is that defined with packet rate)
+        RATE=$(echo ${BYTE_RATE} | awk -F/ '{print $2}')
+        defineWindowSize
+        ADDITIONAL_FIELDS="$WINDOW_SIZE"
+    fi
+
+    # Convert to byte
+    convertMeasureInByte
+
+    # -j|--max-bytes-rate Specify maximum bytes rate for MUD rule.
+    ADDITIONAL_FIELDS="${ADDITIONAL_FIELDS} --max-bytes-rate ${BYTE}"
+
+fi
+
+# Defining the IP protocol
+if [ "${FAMILY}" = "ipv6" ]; then
+    OPTION_IP_SRC="-6"
+    OPTION_IP_DEST="-7"
+else
+    OPTION_IP_SRC="-4"
+    OPTION_IP_DEST="-5"
+fi
+
 # The usage of another variable can help in removing phase
-RULE="-4 ${SRC_IP} -5 ${DEST_IP}  ${PORTS} -p ${PROTO} -o"
+RULE="${OPTION_IP_SRC} ${SRC_IP} ${OPTION_IP_DEST} ${DEST_IP}  ${PORTS} -p ${PROTO} -o ${ADDITIONAL_FIELDS}"
+
 
 # The MUD manager is designed to add a final rule to deny all the communications from that device.
 # In this case it's not necessary, because by default all the communications are dropped
 # So we skip the rules where destination address is any or protocol is all
 if [ ${DEST_IP} != 'any' -o ${PROTO} != 'all' ]; then
     # Insert a rule
-    echo "${EBPF_PROGRAM} -i ${RULE}"
+    echo "Insert ebpf firewall rule"
+    ${EBPF_PROGRAM} -i ${RULE}
     echo "${RULE}" >> rules/ebpf.rules
 fi
 

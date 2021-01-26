@@ -10,20 +10,17 @@
 BASEDIR=`dirname "$0"`
 usage() { 
   echo "Usage: 
-Required: -i <ip-addr> -e <ebpf_program_path> 
-Optional: -r (rollbackOperation)" 1>&2; 
+Required: -i <ip-addr> -e <ebpf_program_path>" 1>&2; 
   exit 0; 
 }
 
 DEVICE_IP=""
 EBPF_PROGRAM=""
-ROLLBACK=false
 
-while getopts 'hi:e:r' option; do
+while getopts 'hi:e:' option; do
     case "${option}" in
         i) DEVICE_IP=$OPTARG;;
         e) EBPF_PROGRAM=$OPTARG;;
-        r) ROLLBACK=true;;
 	h | *) usage;;
     esac
 done
@@ -50,6 +47,7 @@ for LINE in $LINE_NUMBERS_IP; do
         TO_REMOVE=`expr $LINE - $LINE_REMOVED`
         RULE=$(sed "${TO_REMOVE}q;d" rules/ebpf.rules)
 
+        echo "Delete rule ebpf firewall"
         # Delete rule from firewall
         $EBPF_PROGRAM -r $RULE
 
@@ -59,6 +57,7 @@ for LINE in $LINE_NUMBERS_IP; do
     fi
 done
 
-echo "Total rules removed: $LINE_REMOVED"
+# Debug
+# echo "Total rules removed: $LINE_REMOVED"
 
 exit 0

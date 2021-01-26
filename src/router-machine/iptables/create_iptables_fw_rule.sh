@@ -135,7 +135,7 @@ covertMeasureInByte() {
 convertRateInSec () {
     # Convert Rate in second. Possible values: /minute, /hour, /day
     local RATE=$(echo ${BYTE_RATE} | awk -F/ '{print $2}')
-    local VALUE=$(echo $BYTE_RATE | grep -o '[0-9]\+') # Obatains onlyu the numbers
+    local VALUE=$(echo $BYTE_RATE | grep -o '[0-9]\+') # Cut any digits
     
     TO_BYTE=$(echo $BYTE_RATE | awk -F/ '{print $1}' | sed "s/$VALUE//g")
     covertMeasureInByte
@@ -227,6 +227,7 @@ if  [ -n "${PACKET_RATE/ //}" -a "${PACKET_RATE}" != '(null)' ]; then
     ADDITIONAL_FIELDS="${ADDITIONAL_FIELDS} -m hashlimit --hashlimit-mode ${MODES} --hashlimit-upto ${PACKET_RATE}${RATE} --hashlimit-burst ${BURST_LIMIT} --hashlimit-name packet-rate-${SRC_IP}"
 fi
 
+# Defining byte rate
 if  [ -n "${BYTE_RATE/ //}" -a "${BYTE_RATE}" != '(null)' ] ; then
     
     # Converting rate in sec (Now even the unit is converted in byte)
@@ -236,8 +237,6 @@ if  [ -n "${BYTE_RATE/ //}" -a "${BYTE_RATE}" != '(null)' ] ; then
 fi
 
 
-# Source and destination zone should be used for something (e.g. to choose the interfaces direction)
-# TODO implement this part, once you know the network structure
 
 PROTOCOL="-p ${PROTO}"
 

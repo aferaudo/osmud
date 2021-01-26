@@ -155,9 +155,9 @@ int removeFirewallIPRule(char *ipAddr, char *macAddress){
 	{
 		// Check config file only if not previously checked	
 		// TODO Check interface in general case (Maybe they are not necessary)
-		if(!interfaces)
-			// osmudConfigFile contains the path to the config file containing the internal an external conf
-			interfaces = get_interfaces(osmudConfigFile);
+		// if(!interfaces)
+		// 	// osmudConfigFile contains the path to the config file containing the internal an external conf
+		// 	interfaces = get_interfaces(osmudConfigFile);
 		
 		sprintf(execBuf,"%s -i %s -e %s", EBPF_FIREWALL_REMOVE_SCRIPT, ipAddr, ebpfPath);
 		execBuf[BUFSIZE-1] = '\0';

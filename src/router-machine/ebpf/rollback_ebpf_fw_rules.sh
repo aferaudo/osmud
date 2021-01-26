@@ -6,8 +6,6 @@
 # Rollback operations:
 # Delete all rules not yet confirmed
 
-# TODO (write this on the iPad)
-# We can actually call the script remove (I cannot use it because it requires the ip address which is not needed in our case)
 
 LINE_NUMBER_CONFIRMED=$(grep CONFIRMED -n rules/ebpf.rules | cut -f 1 -d:)
 
@@ -30,3 +28,4 @@ for LINE in $(seq ${LINE_NUMBER_CONFIRMED} ${TOTAL_LINES});do
 
 done
 
+exit 0

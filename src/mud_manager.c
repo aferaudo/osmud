@@ -236,7 +236,7 @@ int executeMudWithDhcpContext(DhcpEvent *dhcpEvent)
 		    	}
 		    }
 			// free memory
-			freeMudFileInfo(mudFile);
+			// freeMudFileInfo(mudFile);
 		    
 			// Install default rule to block all traffic from this IP address unless allowed in the MUD file
 		    // ORDER MATTERS - this rule needs to be installed after all of the individual allow/deny rules
@@ -290,7 +290,6 @@ void executeNewDhcpAction(DhcpEvent *dhcpEvent)
 		dhcpEvent->mudSigURL = createSigUrlFromMudUrl(dhcpEvent->mudFileURL);
 		dhcpEvent->mudFileStorageLocation = createStorageLocation(dhcpEvent->mudFileURL);
 		dhcpEvent->mudSigFileStorageLocation = createStorageLocation(dhcpEvent->mudSigURL);
-
 		/* We are processing a MUD aware device. Go to the MUD file server and get the usage description */
 		/* non-zero return code indicates error during communications */
 		/* Mud files and signature files are stored in their computed storage locations for future reference */

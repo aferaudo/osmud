@@ -23,7 +23,7 @@ CFLAGS = -Wall -g -std=c99 -D_XOPEN_SOURCE=600 -DDEBUG
 LDFLAGS = -ljson-c -lcurl
 CFLAGSCONF = `pkg-config --cflags glib-2.0`
 LDFLAGSCONF = `pkg-config --libs glib-2.0`
-IPTABLES_DIR = iptables_rules
+RULES_DIR = rules
 ODIR = odir
 
 # This variable identifies all header files in the directory; we use it to create a dependency chain between the object files and the source files
@@ -64,7 +64,7 @@ osmud:	 osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o openwrt.o mudpars
 	$(CC) $(CFLAGS) $(LDFLAGS) osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o openwrt.o mudparser.o mud_manager.o version.o -o osmud -ljson-c -lcurl
 
 osmud-generic:	 osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o config.o linux.o mudparser.o mud_manager.o version.o
-	@ mkdir -p $(IPTABLES_DIR)
+	@ mkdir -p $(RULES_DIR)
 	$(CC) $(CFLAGS) $(CFLAGSCONF) $(LDFLAGS)  osmud.o comms.o oms_utils.o oms_logging.o dhcp_event.o config.o linux.o mudparser.o mud_manager.o version.o -o osmud -ljson-c -lcurl $(LDFLAGSCONF)
  
 # To clean build artifacts, we specify a 'clean' rule, and use PHONY to indicate that this rule never matches with a potential file in the directory
