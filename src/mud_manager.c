@@ -206,7 +206,8 @@ int executeMudWithDhcpContext(DhcpEvent *dhcpEvent)
 	if (mudFile) {
 			// First, remove any prior entry for this device in case a NEW event happens for an existing configured device
 			removeFirewallIPRule(dhcpEvent->ipAddress, dhcpEvent->macAddress);
-			// MY LOGGING CODE
+			
+			// OSMUD-GENERIC
 			snprintf(execBuf, BUFSIZE, "mudfile %d %d %s", mudFile->fromAccessListCount, mudFile->toAccessListCount, mudFile->mudUrl);
 			execBuf[BUFSIZE-1] = '\0';
 			logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL,execBuf);

@@ -36,28 +36,28 @@ if [[ -z "${EBPF_PROGRAM/ //}" ]]; then
     exit 1
 fi
 
+RULES_FILE="rules/ebpf.rules"
 
-LINE_NUMBERS_IP=$(grep ${DEVICE_IP} -n rules/ebpf.rules | cut -f 1 -d:)
-LINE_NUMBER_CONFIRMED=$(grep CONFIRMED -n rules/ebpf.rules | cut -f 1 -d:)
+if [ -f ${RULES_FILE} ]; then
+    LINE_NUMBERS_IP=$(grep ${DEVICE_IP} -n ${RULES_FILE} | cut -f 1 -d:)
+    LINE_NUMBER_CONFIRMED=$(grep CONFIRMED -n ${RULES_FILE} | cut -f 1 -d:)
 
-LINE_REMOVED=0
-for LINE in $LINE_NUMBERS_IP; do
-    if [ $LINE -lt $LINE_NUMBER_CONFIRMED ]; then
-        # Removing rules committed
-        TO_REMOVE=`expr $LINE - $LINE_REMOVED`
-        RULE=$(sed "${TO_REMOVE}q;d" rules/ebpf.rules)
+    LINE_REMOVED=0
+    for LINE in $LINE_NUMBERS_IP; do
+        if [ $LINE -lt $LINE_NUMBER_CONFIRMED ]; then
+            # Removing rules committed
+            TO_REMOVE=`expr $LINE - $LINE_REMOVED`
+            
+            RULE=$(sed "${TO_REMOVE}q;d" ${RULES_FILE})
 
-        echo "Delete rule ebpf firewall"
-        # Delete rule from firewall
-        $EBPF_PROGRAM -r $RULE
+            # Delete rule from firewall
+            $EBPF_PROGRAM -r $RULE
 
-        # Delete the rule from the file
-        sed -i "${TO_REMOVE}d" rules/ebpf.rules
-        LINE_REMOVED=`expr $LINE_REMOVED + 1`
-    fi
-done
-
-# Debug
-# echo "Total rules removed: $LINE_REMOVED"
+            # Delete the rule from the file
+            sed -i "${TO_REMOVE}d" ${RULES_FILE}
+            LINE_REMOVED=`expr $LINE_REMOVED + 1`
+        fi
+    done
+fi
 
 exit 0

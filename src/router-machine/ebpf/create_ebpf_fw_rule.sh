@@ -250,7 +250,6 @@ RULE="${OPTION_IP_SRC} ${SRC_IP} ${OPTION_IP_DEST} ${DEST_IP}  ${PORTS} -p ${PRO
 # So we skip the rules where destination address is any or protocol is all
 if [ ${DEST_IP} != 'any' -o ${PROTO} != 'all' ]; then
     # Insert a rule
-    echo "Insert ebpf firewall rule"
     ${EBPF_PROGRAM} -i ${RULE}
     echo "${RULE}" >> rules/ebpf.rules
 fi

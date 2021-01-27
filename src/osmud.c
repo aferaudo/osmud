@@ -201,7 +201,7 @@ void printHelp()
 	printf("    -b <MUD file storage data directory>: set the directory path for MUD file storage\n");
 	printf("    -c <osMUD config file>: set the directory path and file for osMUD startup configuration file\n");
 	printf("    -l <osMUD logfile>: set the osMUD logger path and file for system event logging.\n");
-	printf("    -s tells to the MUD manager the ebpf program path (this feature is available only on Linux devices as alternative to the iptables)\n");
+	printf("    -s tells to the MUD manager the ebpf script path (this feature is available only on Linux devices as alternative to the iptables)\n");
 	printf("    -v: display osmud version information and exit\n");
 }
 

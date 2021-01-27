@@ -200,9 +200,9 @@ IP_ADDRESSES="-s ${SRC_IP}"
 MODES="srcip"
 
 # Creating general rule to jump at MUD_CHAIN
-eval "${IPTABLES_RULE} -C ${CHAIN} ${IP_ADDRESSES} -j ${MUD_CHAIN}" > /dev/null 2>&1
+${IPTABLES_RULE} -C ${CHAIN} ${IP_ADDRESSES} -j ${MUD_CHAIN} > /dev/null 2>&1
 if [ $? -eq 1 -a "${SRC}" != "wan" ]; then
-    eval "${IPTABLES_RULE} -A ${CHAIN} ${IP_ADDRESSES} -j ${MUD_CHAIN}"
+    ${IPTABLES_RULE} -A ${CHAIN} ${IP_ADDRESSES} -j ${MUD_CHAIN}
 fi
 
 if [ ${DEST_IP} != 'any' ]; then
@@ -255,6 +255,6 @@ fi
 
 # All rules will be appended on MUD_CHAIN
 IPTABLES_RULE="${IPTABLES_RULE} -A ${MUD_CHAIN} ${PROTOCOL} ${IP_ADDRESSES} ${PORTS} ${ADDITIONAL_FIELDS} -j ${TARGET}"
-eval "${IPTABLES_RULE}"
+${IPTABLES_RULE}
 
 exit 0

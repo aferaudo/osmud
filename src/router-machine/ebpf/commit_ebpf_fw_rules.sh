@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2020
+# Copyright (c) 2021
 # Author: Angelo Feraudo
 
 # Remove confirmed line from that file if any
