@@ -22,11 +22,19 @@ Our intention in the future is for osMUD to have the ability to run in other env
 
 ## Building osMUD
 
-### Build osMUD Generic
+### Build osMUD Generic on a Linux machine
 ```sh
 $ cd src/
-$ make
+$ make osmud-generic
 ```
+Now you can run osmud in superuser mode.
+```sh
+$ sudo ./osmud -k -x /var/run/osmud.pid -e yourpath/log/dhcpmasq.txt -w yourpath/osmud/dnswhitelist -b yourpath/osmud/mudfiles -l yourpath/log/osmud.log
+```
+
+With ```-s``` option you can specify the ebpf script path.
+
+**N.B. This [osmud version](src/router-machine/README.md) is designed to work with eBPF-IoT**
 
 ### Build OpenWRT, osMUD for OpenWRT, & osmud-dnsmasq for OpenWRT in Docker image
 This process sets up the OpenWRT build environment in a docker image to build the artifacts required to install on the router. The steps are:
