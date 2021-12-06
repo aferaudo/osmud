@@ -36,8 +36,8 @@
 
 /* Default locations for osMUD resources based on OpenWRT */
 #define MUD_FILE_DIRECTORY "/var/state/osmud/mudfiles"
-#define BASECONFIGFILE "etc/osmud_interface.conf" // This parameter has been changed for interface support (ebpf)
-// #define BASECONFIGFILE "etc/osmud.conf"  // Real parameter
+#define IFACECONFIGFILE "etc/osmud_interface.conf" // Interface Support
+#define BASECONFIGFILE "/etc/osmud.conf" 
 #define DHCP_EVENT_FILE "/var/log/dhcpmasq.txt"
 #define PID_FILE "/var/run/osmud.pid"
 #define OSMUD_LOG_FILE "/var/log/osmud.log"
@@ -47,6 +47,7 @@ typedef int FD;
 char *dnsWhiteListFile = (char *)0;
 char *mudFileDataDirectory = (char *)0;
 char *osmudConfigFile = (char *)0;
+char *ifaceConfigFile = (char *)0;
 char *dhcpEventFile = (char *)0;
 char *osmudPidFile = (char *)0;
 char *osMudLogFile = (char *)0;
@@ -200,6 +201,7 @@ void printHelp()
 	printf("    -w <dnsWhiteListFile>: set the file path and name for DNS white-list file\n");
 	printf("    -b <MUD file storage data directory>: set the directory path for MUD file storage\n");
 	printf("    -c <osMUD config file>: set the directory path and file for osMUD startup configuration file\n");
+	printf("    -z <osMUD interface config file>: set the directory path for interface configuration file (ebpf)\n");
 	printf("    -l <osMUD logfile>: set the osMUD logger path and file for system event logging.\n");
 	printf("    -s tells to the MUD manager the ebpf script path (this feature is available only on Linux devices as alternative to the iptables)\n");
 	printf("    -v: display osmud version information and exit\n");
@@ -209,6 +211,7 @@ void checkForDefaults() {
 	if (!dnsWhiteListFile) dnsWhiteListFile = copystring(DNS_FILE_NAME_WITH_PATH);
 	if (!mudFileDataDirectory) mudFileDataDirectory = copystring(MUD_FILE_DIRECTORY);
 	if (!osmudConfigFile) osmudConfigFile = copystring(BASECONFIGFILE);
+	if (!ifaceConfigFile) ifaceConfigFile = copystring(IFACECONFIGFILE);
 	if (!dhcpEventFile) dhcpEventFile = copystring(DHCP_EVENT_FILE);
 	if (!osmudPidFile) osmudPidFile = copystring(PID_FILE);
 	if (!osMudLogFile) osMudLogFile = copystring(OSMUD_LOG_FILE);
@@ -253,6 +256,9 @@ void logInitialSettings()
 	logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, msgBuf);
 
 	sprintf(msgBuf, "    osMUD startup configuration file: %s", osmudConfigFile);
+	logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, msgBuf);
+
+	sprintf(msgBuf, "    osMUD interface configuration file: %s", ifaceConfigFile);
 	logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_GENERAL, msgBuf);
 
 	sprintf(msgBuf, "    osMUD logger path and file: %s", osMudLogFile);
@@ -301,6 +307,8 @@ int main(int argc, char* argv[])
 						break;
         case 's':		ebpfPath = copystring(optarg);
 						break;
+		case 'z':		ifaceConfigFile = copystring(optarg);
+						break;			
 		default:
             printHelp(); /* If you find an unknown option, do not start up */
             exit(EXIT_FAILURE);

@@ -36,6 +36,10 @@ With ```-s``` option you can specify the ebpf script path.
 
 **N.B. This [osmud version](src/router-machine/README.md) is designed to work with eBPF-IoT**
 
+
+**Furhtmore, in eBPF mode you need to configure the interfaces involved. You can found an example in [src/etc/osmud_interface.conf](https://github.com/aferaudo/osmud/tree/test_external_device/src/etc/osmud_interface.conf)**
+
+
 ### Build OpenWRT, osMUD for OpenWRT, & osmud-dnsmasq for OpenWRT in Docker image
 This process sets up the OpenWRT build environment in a docker image to build the artifacts required to install on the router. The steps are:
 

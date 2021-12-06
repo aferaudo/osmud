@@ -39,6 +39,7 @@
 extern char *dnsWhiteListFile;
 extern char *mudFileDataDirectory;
 extern char *osmudConfigFile;
+extern char *ifaceConfigFile;
 extern char *dhcpEventFile;
 extern char *osmudPidFile;
 extern char *osMudLogFile;

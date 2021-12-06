@@ -112,8 +112,8 @@ int installFirewallIPRule(char *srcIp, char *destIp, char *port, char *srcDevice
 		// Check config file only if not previously checked	
 		// TODO use interfaces in general case
 		if(!interfaces)
-			// osmudConfigFile contains the path to the config file containing the internal an external conf
-			interfaces = get_interfaces(osmudConfigFile);
+			// ifaceConfigFile contains the path to the config file containing the internal an external conf
+			interfaces = get_interfaces(ifaceConfigFile);
 		
 		sprintf(execBuf, "%s -s %s -d %s -i %s -a %s -e %s -j %s -b %s -p %s -n %s -t %s -f %s -c %s -r \"%s\" -m \"%s\"", 
 				EBPF_FIREWALL_SCRIPT, srcDevice, 

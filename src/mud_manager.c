@@ -87,6 +87,10 @@ int processFromAccess(char *aclName, char *aclType, AclEntry *acl, DhcpEvent *ev
     		logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_DEVICE_INTERFACE, "Applying *from* dns ace rule.");
 
     		dnsInfo = resolveDnsEntryToIp(acl->aceList[i].dnsName);
+			if(!dnsInfo){
+				// To avoid segfault, when dns is not able to resolve the address the rule is skipped
+				continue;
+			}
 
 			// Debug new fields
 			// it is possible that the new fields are not specified
@@ -148,6 +152,10 @@ int processToAccess(char *aclName, char *aclType, AclEntry *acl, DhcpEvent *even
     		logOmsGeneralMessage(OMS_INFO, OMS_SUBSYS_DEVICE_INTERFACE, "Applying *to* dns ace rule.");
 
     		dnsInfo = resolveDnsEntryToIp(acl->aceList[i].dnsName);
+			if(!dnsInfo){
+				// To avoid segfault, when dns is not able to resolve the address the rule is skipped
+				continue;
+			}
 
     		// Need to check a return code to make sure the rule got applied correctly
     		installDnsRule(dnsInfo->domainName, event->ipAddress, event->macAddress, event->hostName, dnsWhiteListFile);
@@ -237,7 +245,7 @@ int executeMudWithDhcpContext(DhcpEvent *dhcpEvent)
 		    	}
 		    }
 			// free memory
-			// freeMudFileInfo(mudFile);
+			freeMudFileInfo(mudFile);
 		    
 			// Install default rule to block all traffic from this IP address unless allowed in the MUD file
 		    // ORDER MATTERS - this rule needs to be installed after all of the individual allow/deny rules
