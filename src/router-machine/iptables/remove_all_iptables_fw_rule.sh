@@ -34,7 +34,7 @@ fi
 MUD_CHAIN="MUD_CHAIN"
 
 # Check on INPUT chain
-LINE_NUMBERS=$(iptables -L INPUT --line-numbers | awk "/$DEVICE_IP/ {print\$1}")
+LINE_NUMBERS=$(iptables -L INPUT --line-numbers | awk -v v="$DEVICE_IP" '$5==v || $6==v {print$1}')
 COUNTER=0
 for i in $LINE_NUMBERS
 do
@@ -44,7 +44,7 @@ do
 done
 
 # Check on FORWARD chain
-LINE_NUMBERS=$(iptables -L FORWARD --line-numbers | awk "/$DEVICE_IP/ {print\$1}")
+LINE_NUMBERS=$(iptables -L FORWARD --line-numbers | awk -v v="$DEVICE_IP" '$5==v || $6==v {print$1}')
 COUNTER=0
 for i in $LINE_NUMBERS
 do
@@ -54,7 +54,7 @@ do
 done
 
 # Check on OUTPUT chain
-LINE_NUMBERS=$(iptables -L OUTPUT --line-numbers | awk "/$DEVICE_IP/ {print\$1}")
+LINE_NUMBERS=$(iptables -L OUTPUT --line-numbers | awk -v v="$DEVICE_IP" '$5==v || $6==v {print$1}')
 COUNTER=0
 for i in $LINE_NUMBERS
 do
@@ -66,7 +66,7 @@ done
 
 # Check on MUD chain
 # It generates one error at the beginning because the chain has not been created yet
-LINE_NUMBERS=$(iptables -L ${MUD_CHAIN} --line-numbers | awk "/$DEVICE_IP/ {print\$1}")
+LINE_NUMBERS=$(iptables -L ${MUD_CHAIN} --line-numbers | awk -v v="$DEVICE_IP" '$5==v || $6==v {print$1}')
 COUNTER=0
 for i in $LINE_NUMBERS
 do
