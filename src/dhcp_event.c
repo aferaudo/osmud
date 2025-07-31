@@ -119,7 +119,7 @@ getDhcpEventActionClass(char *dhcpAction)
 }
 
 int
-processDhcpEventFromLog(char *logMessage, DhcpEvent *dhcpEvent)
+processDhcpEventFromLog(char *logMessage, DhcpEvent *dhcpEvent, int mode)
 {
 	/*
 	 * Format: Fields are PIPE delimited! This matches up to the "detect_new_devices.sh" script
@@ -162,11 +162,31 @@ processDhcpEventFromLog(char *logMessage, DhcpEvent *dhcpEvent)
 		dhcpEvent->ipAddress = array[9];
 		dhcpEvent->hostName = array[10];
 
+
 		/* If the MUD URL is one char long, it's assumed to be invalid */
 		dhcpEvent->mudFileURL = NULL;
-		if ((array[6] != NULL) && (strlen(array[6]) > 1)) {
+		if ((array[6] != NULL) && (strlen(array[6]) > 1) && mode == 0) {
 			dhcpEvent->mudFileURL = array[6];
+		} else {
+			if (mode == 1) {
+				dhcpEvent->mudFileURL = array[6];
+				/*In x509 mode, the MUDURL in the dhcpmasq.txt file
+				will be null. So, when osmud finds it, it will allow
+				the device to communicate only with the broker
+				
+				printf("MUD URL is NULL\n");
+				
+				char command[256];
+				
+				sprintf(command, "iptables -A FORWARD -p tcp -s %s -d 192.168.17.131 --dport 8888 -j ACCEPT", array[9]);
+				system(command);
+				sprintf(command, "iptables -A FORWARD -s %s -j DROP", array[9]);
+				system(command);
+				*/
+
+			}
 		}
+		
 	} else {
 		retval = 0; //error process log message line
 	}
