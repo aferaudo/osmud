@@ -36,7 +36,7 @@ typedef struct {
 void executeOpenMudDhcpAction(DhcpEvent *event);
 const char* getDhcpEventText(DHCP_ACTIONS actionClass);
 DHCP_ACTIONS getDhcpEventActionClass(char *);
-int processDhcpEventFromLog(char *logMessage, DhcpEvent *dhcpEvent);
+int processDhcpEventFromLog(char *logMessage, DhcpEvent *dhcpEvent, int mode);
 void clearDhcpEventRecord(DhcpEvent *dhcpEvent);
 char *createSigUrlFromMudUrl(char *mudFileURL);
 char *createStorageLocation(char *mudURL);

@@ -1,0 +1,7 @@
+#!/bin/bash
+# Uso: sudo ./router_config.sh gretap1 ens18
+
+echo 1 > /proc/sys/net/ipv4/ip_forward
+iptables -A FORWARD -i $1 -o $2 -j ACCEPT
+iptables -A FORWARD -i $2 -o $1 -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -t nat -A POSTROUTING -o $2 -j MASQUERADE

@@ -31,6 +31,7 @@
 #include "dhcp_event.h"
 #include "mud_manager.h"
 #include "version.h"
+#include "x509_server.h"
 
 #define MAXLINE 1024
 
@@ -57,6 +58,7 @@ int noFailOnMudValidation = 0;
 int heartBeatCycle = 0; /* how many polling cycles have passed in this interval period*/
 int heartBeatLogInterval = 720; /* Every x cycles, trigger the heartbeat log - 1 hour */
 int sleepTimeout = 5; /* how log to sleep between polling the event file - in seconds */
+int x509Mode = 0; // 0 = DHCP: 1 = X509
 
 int
 readLine(char *buffer, int maxLineLength, int fd)
@@ -96,7 +98,7 @@ int pollDhcpFile(char *line, int maxLineLength, FD filed)
 	FD_SET(filed, &rfds);
 
 	/* Wait up to five seconds. */
-	tv.tv_sec = 5;
+	tv.tv_sec = 1;
 	tv.tv_usec = 0;
 
 	retval = select(filed+1, &rfds, NULL, NULL, &tv);
@@ -155,10 +157,16 @@ void doProcessLoop(FD filed)
 		int hhh;
 		if ((hhh = pollDhcpFile(dhcpEventLine, MAXLINE, filed))) {
 			logOmsGeneralMessage(OMS_DEBUG, OMS_SUBSYS_GENERAL, "Executing on dhcpmasq info");
-			if (processDhcpEventFromLog(dhcpEventLine, &dhcpEvent))
+			if (processDhcpEventFromLog(dhcpEventLine, &dhcpEvent, x509Mode))
 			{
-				// There is a valid DHCP event to process
-				executeOpenMudDhcpAction(&dhcpEvent);
+				if (x509Mode == 0){
+					// There is a valid DHCP event to process
+					executeOpenMudDhcpAction(&dhcpEvent);
+				}
+				else {
+					// We are working with the X509 implementation
+        			save_event_to_file(&dhcpEvent);  // funzione che salva in /tmp
+				}
 			}
 			else
 			{
@@ -199,6 +207,7 @@ void printHelp()
 	printf("    -i: Do not fail processing when the MUD file p7s file does not validate\n");
 	printf("    -e <dhcpEventFile>: set the file path and name for DHCP event file\n");
 	printf("    -w <dnsWhiteListFile>: set the file path and name for DNS white-list file\n");
+	printf("    -C: switch to x509 implementation instead of the DHCP one\n");
 	printf("    -b <MUD file storage data directory>: set the directory path for MUD file storage\n");
 	printf("    -c <osMUD config file>: set the directory path and file for osMUD startup configuration file\n");
 	printf("    -z <osMUD interface config file>: set the directory path for interface configuration file (ebpf)\n");
@@ -277,7 +286,7 @@ int main(int argc, char* argv[])
     char *osLogLevel = NULL;
 
 	//TODO: Need option for logFileName, logToConsole, eventFileWithPath, logLevel (INFO|WARN|DEBUG)
-    while ((opt = getopt(argc, argv, "vidhkx:e:w:b:c:l:m:s:")) != -1) {
+    while ((opt = getopt(argc, argv, "vidhkxC:e:w:b:c:l:m:s:")) != -1) {
         switch (opt) {
         case 'd':       debugMode = 1;
         				break;
@@ -296,6 +305,8 @@ int main(int argc, char* argv[])
         case 'e': 		dhcpEventFile = copystring(optarg);
 						break;
 		case 'w': 		dnsWhiteListFile = copystring(optarg);
+						break;
+		case 'C': 		x509Mode = 1;
 						break;
 		case 'b': 		mudFileDataDirectory = copystring(optarg);
 						break;
@@ -386,16 +397,24 @@ int main(int argc, char* argv[])
 		// Change the current working directory to root.
 		chdir("/tmp");
     }
+	// start the x509 server
+	if (x509Mode == 1)
+	{
+	   printf("Modalità X.509 attivata: avvio HTTP server per registrazione certificati\n");
 
+		start_x509_server_async();
+	}
 
 	// Close stdin. stdout and stderr
-	close(STDIN_FILENO);
+	
 	// For logging purposes we will leave them opened
 	// close(STDOUT_FILENO);
 	// close(STDERR_FILENO);
 
-	doProcessLoop(filed);
+	
 
+	doProcessLoop(filed);
+	close(STDIN_FILENO);
 	close(filed);
 	fclose(logger);
 	return (0);

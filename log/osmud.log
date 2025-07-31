@@ -1,0 +1,38 @@
+2025-06-24 10:26:29 INFO::GENERAL::  Starting OSMUD controlling with initial settings:
+2025-06-24 10:26:29 INFO::GENERAL::    PID FILE: /var/run/osmud.pid
+2025-06-24 10:26:29 INFO::GENERAL::    DHCP event file: /var/log/dhcpmasq.txt
+2025-06-24 10:26:29 INFO::GENERAL::    DNS white-list file: /home/sallevi/osmud/dnswhitelist
+2025-06-24 10:26:29 INFO::GENERAL::    MUD file storage directory: /home/sallevi/osmud/mudfiles
+2025-06-24 10:26:29 INFO::GENERAL::    osMUD startup configuration file: /etc/osmud.conf
+2025-06-24 10:26:29 INFO::GENERAL::    osMUD interface configuration file: etc/osmud_interface.conf
+2025-06-24 10:26:29 INFO::GENERAL::    osMUD logger path and file: /home/sallevi/osmud/log/osmud.log
+2025-06-24 10:27:12 INFO::GENERAL::NEW Device Action: IP: 192.168.10.113, MAC: 4c:b0:4a:9e:27:94
+2025-06-24 10:27:12 INFO::DEVICE_INTERFACE::Applying *from* dns ace rule.
+2025-06-24 10:27:13 CRITICAL::DEVICE_INTERFACE::Could not write DNS rule to file.
+2025-06-24 10:27:13 INFO::DEVICE_INTERFACE::Applying *from* dns ace rule.
+2025-06-24 10:27:13 CRITICAL::DEVICE_INTERFACE::Could not write DNS rule to file.
+2025-06-24 10:27:13 INFO::DEVICE_INTERFACE::Applying *from* dns ace rule.
+2025-06-24 10:27:13 CRITICAL::DEVICE_INTERFACE::Could not write DNS rule to file.
+2025-06-24 10:27:13 INFO::DEVICE_INTERFACE::Successfully installed fromAccess rule.
+2025-06-24 10:27:13 INFO::DEVICE_INTERFACE::Applying *to* dns ace rule.
+2025-06-24 10:27:13 CRITICAL::DEVICE_INTERFACE::Could not write DNS rule to file.
+2025-06-24 10:27:13 INFO::DEVICE_INTERFACE::Applying *to* dns ace rule.
+2025-06-24 10:27:13 CRITICAL::DEVICE_INTERFACE::Could not write DNS rule to file.
+2025-06-24 10:27:13 INFO::DEVICE_INTERFACE::Applying *to* dns ace rule.
+2025-06-24 10:27:13 CRITICAL::DEVICE_INTERFACE::Could not write DNS rule to file.
+2025-06-24 10:27:13 INFO::DEVICE_INTERFACE::Successfully installed toAccess rule.
+2025-06-24 10:27:13 INFO::GENERAL::NEW Device Action: IP: 192.168.10.145, MAC: e8:4e:06:b6:0a:54
+2025-06-24 10:27:14 INFO::DEVICE_INTERFACE::Applying *from* dns ace rule.
+2025-06-24 10:27:14 CRITICAL::DEVICE_INTERFACE::Could not write DNS rule to file.
+2025-06-24 10:27:14 INFO::DEVICE_INTERFACE::Applying *from* dns ace rule.
+2025-06-24 10:27:14 CRITICAL::DEVICE_INTERFACE::Could not write DNS rule to file.
+2025-06-24 10:27:14 INFO::DEVICE_INTERFACE::Applying *from* dns ace rule.
+2025-06-24 10:27:14 CRITICAL::DEVICE_INTERFACE::Could not write DNS rule to file.
+2025-06-24 10:27:14 INFO::DEVICE_INTERFACE::Successfully installed fromAccess rule.
+2025-06-24 10:27:14 INFO::DEVICE_INTERFACE::Applying *to* dns ace rule.
+2025-06-24 10:27:14 CRITICAL::DEVICE_INTERFACE::Could not write DNS rule to file.
+2025-06-24 10:27:14 INFO::DEVICE_INTERFACE::Applying *to* dns ace rule.
+2025-06-24 10:27:14 CRITICAL::DEVICE_INTERFACE::Could not write DNS rule to file.
+2025-06-24 10:27:14 INFO::DEVICE_INTERFACE::Applying *to* dns ace rule.
+2025-06-24 10:27:14 CRITICAL::DEVICE_INTERFACE::Could not write DNS rule to file.
+2025-06-24 10:27:14 INFO::DEVICE_INTERFACE::Successfully installed toAccess rule.
