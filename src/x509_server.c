@@ -21,9 +21,7 @@
 #include <sys/time.h>
 #include <openssl/x509v3.h>
 #include <openssl/x509_vfy.h>
-
-
-
+#include <dirent.h>
 #include "dhcp_event.h"
 #include "mud_manager.h"
 
@@ -38,65 +36,6 @@ typedef struct {
     size_t size;
 } PostContext;
 
-#include <dirent.h>
-
-typedef struct {
-    char filename[128];
-    volatile bool *running;
-} MonitorArgs;
-
-void *monitor_usage(void *arg) {
-    MonitorArgs *args = (MonitorArgs *)arg;
-    pid_t pid = getpid();
-    char cmd[128];
-    snprintf(cmd, sizeof(cmd), "/proc/%d/stat", pid);
-
-    FILE *log = fopen(args->filename, "w");
-    if (!log) {
-        perror("Errore apertura file monitor");
-        return NULL;
-    }
-
-    fprintf(log, "timestamp_ms,cpu_time_s,ram_kb\n");
-    fflush(log);
-
-    while (*(args->running)) {
-        FILE *f = fopen(cmd, "r");
-        if (f) {
-            long unsigned utime, stime;
-            char comm[256], state;
-            int ppid, pgrp, session, tty_nr, tpgid;
-            unsigned flags;
-            long cutime, cstime, priority, nice, num_threads, itrealvalue;
-            unsigned long vsize;
-            long rss;
-            unsigned long starttime;
-
-            fscanf(f, "%*d %s %c %d %d %d %d %d %u "
-                   "%*u %*u %*u %*u %lu %lu %ld %ld %ld %ld %ld %ld "
-                   "%*ld %*llu %lu %ld",
-                   comm, &state, &ppid, &pgrp, &session, &tty_nr, &tpgid, &flags,
-                   &utime, &stime, &cutime, &cstime, &priority, &nice, &num_threads,
-                   &itrealvalue, &starttime, &vsize, &rss);
-            fclose(f);
-
-            double cpu_time = (utime + stime) / (double) sysconf(_SC_CLK_TCK);
-            double mem_kb = rss * (sysconf(_SC_PAGE_SIZE) / 1024.0);
-
-            struct timeval tv;
-            gettimeofday(&tv, NULL);
-            long long ts_ms = (tv.tv_sec * 1000LL) + (tv.tv_usec / 1000);
-
-            fprintf(log, "%lld,%.3f,%.2f\n", ts_ms, cpu_time, mem_kb);
-            fflush(log);
-        }
-
-        usleep(1000); // sleep for 10 ms
-    }
-
-    fclose(log);
-    return NULL;
-}
 
 // eliminate all temporary files related to VC processing
 void clear_all_temp_state() {
@@ -329,7 +268,7 @@ void save_event_to_file(const DhcpEvent *event) {
     }
 
     if (!is_new_ip) {
-        printf("Evento per IP %s già presente, non sovrascritto.\n", event->ipAddress);
+        printf("Event for IP %s already exist.\n", event->ipAddress);
         return;
     }
 
@@ -346,7 +285,7 @@ void save_event_to_file(const DhcpEvent *event) {
     }
     fputs(new_content, f);
     fclose(f);
-    printf("Evento saved for IP %s\n", event->ipAddress);
+    printf("Event saved for IP %s\n", event->ipAddress);
 }
 
 
@@ -365,13 +304,13 @@ void unblock_device_traffic(const char *ip) {
     char cmd[256];
     int i;
 
-    // Rimuove tutte le DROP da MUD_CHAIN
+    // Remove all DROP rules from MUD_CHAIN
     for (i = 0; i < 10; i++) {
         snprintf(cmd, sizeof(cmd), "iptables -D MUD_CHAIN -s %s -j DROP 2>/dev/null", ip);
-        if (system(cmd) != 0) break;  // termina quando non trova più la regola
+        if (system(cmd) != 0) break;  // ends when no more rules to remove
     }
 
-    // Rimuove tutte le DROP da FORWARD
+    // Remove all DROP rules from FORWARD chain
     for (i = 0; i < 10; i++) {
         snprintf(cmd, sizeof(cmd), "iptables -D FORWARD -s %s -j DROP 2>/dev/null", ip);
         if (system(cmd) != 0) break;
@@ -477,14 +416,14 @@ char *verify_certificate_for_ip(const char *ipAddress) {
     fclose(cert_fp);
     if (!cert) return NULL;
 
-    // === Verifica contro la CA di sistema ===
+    // Verify the certificate against the system's CA store
     X509_STORE *store = X509_STORE_new();
     if (!store) {
         X509_free(cert);
         return NULL;
     }
 
-    // Carica i certificati CA del sistema (es. da /etc/ssl/certs)
+    // Load default CA paths
     if (X509_STORE_set_default_paths(store) != 1) {
         X509_STORE_free(store);
         X509_free(cert);
@@ -517,7 +456,7 @@ char *verify_certificate_for_ip(const char *ipAddress) {
     X509_STORE_CTX_free(ctx);
     X509_STORE_free(store);
 
-    // === Estrai estensione MUD ===
+    // extract the MUD URL from the certificate
     ASN1_OBJECT *mud_oid = OBJ_txt2obj("1.3.6.1.5.5.7.1.25", 1);
     int ext_index = X509_get_ext_by_OBJ(cert, mud_oid, -1);
     ASN1_OBJECT_free(mud_oid);
@@ -534,7 +473,7 @@ char *verify_certificate_for_ip(const char *ipAddress) {
     const unsigned char *p = ASN1_STRING_get0_data(octet);
     int len = ASN1_STRING_length(octet);
 
-    // Decodifica genericamente l'OCTET come ASN1_TYPE
+    // Decode the OCTET_STRING as ASN1_TYPE
     ASN1_TYPE *asn1 = d2i_ASN1_TYPE(NULL, &p, len);
     if (!asn1 || ASN1_TYPE_get(asn1) != V_ASN1_UTF8STRING) {
         ASN1_TYPE_free(asn1);
@@ -569,7 +508,7 @@ void apply_mud_policy_for_ip(DhcpEvent *event, const char *mud_url) {
         return;
     }
 
-    event->mudFileURL = strdup(mud_url);  // copia sicura
+    event->mudFileURL = strdup(mud_url);  // safe copy
     event->action = NEW;
 
     unblock_device_traffic(event->ipAddress);
@@ -655,7 +594,7 @@ static void *process_cert_async_thread(void *arg) {
         return NULL;
     }
 
-    // Salva l'evento per usarlo più avanti
+    // Save the event to a file
     save_event_to_file(event);
 
 
@@ -675,6 +614,7 @@ static void *process_cert_async_thread(void *arg) {
 }
 
 
+// HTTP handler
 static enum MHD_Result answer_to_connection(void *cls,
     struct MHD_Connection *connection,
     const char *url,
@@ -684,8 +624,8 @@ static enum MHD_Result answer_to_connection(void *cls,
     size_t *upload_data_size,
     void **con_cls)
 {
-    struct timeval t_startauth, t_endauth, t_startrules, t_endrules;
 
+    // === /register_mud_cert ===
     if (0 == strcmp(method, "POST") && 0 == strcmp(url, "/register_mud_cert")) {
         if (*con_cls == NULL) {
             PostContext *ctx = calloc(1, sizeof(PostContext));
@@ -703,39 +643,38 @@ static enum MHD_Result answer_to_connection(void *cls,
             return MHD_YES;
         }
 
-        struct json_object *jobj = json_tokener_parse(ctx->data);
-        if (!jobj) goto bad_request;
+        // All the data has been received
+        const union MHD_ConnectionInfo *info = MHD_get_connection_info(connection, MHD_CONNECTION_INFO_CLIENT_ADDRESS);
+        if (info && info->client_addr) {
+            struct sockaddr_in *addr = (struct sockaddr_in *)info->client_addr;
+            char ip[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, &(addr->sin_addr), ip, INET_ADDRSTRLEN);
 
-        struct json_object *jip, *jcert;
-        if (!json_object_object_get_ex(jobj, "ip", &jip) ||
-            !json_object_object_get_ex(jobj, "cert", &jcert)) {
-            json_object_put(jobj);
-            goto bad_request;
+            printf("Received certificate from %s (%zu bytes)\n", ip, ctx->size);
+            save_certificate(ip, ctx->data, ctx->size);
+
+
+            // Generate nonce for the IP
+            char nonce[64];
+            generate_nonce_for_ip(ip, nonce, sizeof(nonce));
+
+            // Answer with the nonce
+            char json_resp[128];
+            snprintf(json_resp, sizeof(json_resp), "{ \"status\": \"ok\", \"nonce\": \"%s\" }", nonce);
+            struct MHD_Response *response =
+                MHD_create_response_from_buffer(strlen(json_resp), (void *)json_resp, MHD_RESPMEM_MUST_COPY);
+            int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+            MHD_destroy_response(response);
+
+            free(ctx->data);
+            free(ctx);
+            *con_cls = NULL;
+            return ret;
         }
-
-        const char *ip = json_object_get_string(jip);
-        const char *cert = json_object_get_string(jcert);
-
-        printf("Received certificate from %s\n", ip);
-        save_certificate(ip, cert, strlen(cert));
-
-        char nonce[64];
-        generate_nonce_for_ip(ip, nonce, sizeof(nonce));
-
-        char json_resp[128];
-        snprintf(json_resp, sizeof(json_resp), "{ \"status\": \"ok\", \"nonce\": \"%s\" }", nonce);
-        struct MHD_Response *response = MHD_create_response_from_buffer(strlen(json_resp), (void *)json_resp, MHD_RESPMEM_MUST_COPY);
-        int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-        MHD_destroy_response(response);
-
-        json_object_put(jobj);
-        free(ctx->data);
-        free(ctx);
-        *con_cls = NULL;
-        return ret;
     }
 
-    if (0 == strcmp(method, "POST") && 0 == strcmp(url, "/verify_nonce")) {
+    // verify_nonce request
+    else if (0 == strcmp(method, "POST") && 0 == strcmp(url, "/verify_nonce")) {
         if (*con_cls == NULL) {
             PostContext *ctx = calloc(1, sizeof(PostContext));
             *con_cls = ctx;
@@ -752,138 +691,82 @@ static enum MHD_Result answer_to_connection(void *cls,
             return MHD_YES;
         }
 
-        struct json_object *jobj = json_tokener_parse(ctx->data);
-        if (!jobj) goto bad_request;
+        const union MHD_ConnectionInfo *info = MHD_get_connection_info(connection, MHD_CONNECTION_INFO_CLIENT_ADDRESS);
+        if (info && info->client_addr) {
+            struct sockaddr_in *addr = (struct sockaddr_in *)info->client_addr;
+            char ip[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, &(addr->sin_addr), ip, INET_ADDRSTRLEN);
 
-        struct json_object *jip, *jsig;
-        if (!json_object_object_get_ex(jobj, "ip", &jip) ||
-            !json_object_object_get_ex(jobj, "signature", &jsig)) {
-            json_object_put(jobj);
-            goto bad_request;
-        }
-
-        const char *ip = json_object_get_string(jip);
-        const char *sig_hex = json_object_get_string(jsig);
-
-        // Converti la firma da esadecimale a binario
-        size_t sig_len = strlen(sig_hex) / 2;
-        unsigned char *sig_bin = malloc(sig_len);
-        for (size_t i = 0; i < sig_len; ++i) {
-            sscanf(sig_hex + 2 * i, "%2hhx", &sig_bin[i]);
-        }
-
-        char sig_path[256];
-        snprintf(sig_path, sizeof(sig_path), "/tmp/signed_nonce_%s", ip);
-        pthread_mutex_lock(&tmpfile_mutex);
-        FILE *f = fopen(sig_path, "wb");
-        if (f) {
-            fwrite(sig_bin, 1, sig_len, f);
-            fclose(f);
-        }
-        pthread_mutex_unlock(&tmpfile_mutex);
-        free(sig_bin);
-        json_object_put(jobj);
-
-        pthread_t monitor_thread;
-        volatile bool monitor_running = true;
-        MonitorArgs args;
-
-        // Crea nome file CSV per questa connessione
-        snprintf(args.filename, sizeof(args.filename), "monitor_%s.csv", ip);
-        args.running = &monitor_running;
-
-        // Avvia thread di monitoraggio
-        pthread_create(&monitor_thread, NULL, monitor_usage, &args);
-        gettimeofday(&t_startauth, NULL);
-        printf("eccoo l'ip desiderato %s\n", ip);
-        char ip_copia[64] = {0};
-        strncpy(ip_copia, ip, sizeof(ip_copia) - 1);
-        if (verify_signature(ip_copia)) {
-            DhcpEvent *event = load_event_from_file(ip_copia);
-            printf("Loaded event for IP %s: %s\n", ip_copia, event ? event->ipAddress : "NULL");
-            if (event) {
-                char *mud_url = verify_certificate_for_ip(ip_copia);
-                gettimeofday(&t_endauth, NULL);
-
-                // Ferma monitoraggio e attendi thread
-                monitor_running = false;
-                pthread_join(monitor_thread, NULL);
-                printf("mud_url: %s\n", mud_url ? mud_url : "NULL");
-                if (mud_url) {
-                    const char *ok = "{ \"status\": \"verified\" }";
-                    struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(ok), (void *)ok, MHD_RESPMEM_PERSISTENT);
-                    int ret = MHD_queue_response(connection, MHD_HTTP_OK, resp);
-                    MHD_destroy_response(resp);
-
-                    free(ctx->data);
-                    free(ctx);
-                    *con_cls = NULL;
-
-                    gettimeofday(&t_startrules, NULL);
-                    apply_mud_policy_for_ip(event, mud_url);
-                    gettimeofday(&t_endrules, NULL);
-
-                    free(mud_url);
-
-                    double elapsed = (t_endauth.tv_sec - t_startauth.tv_sec) + (t_endauth.tv_usec - t_startauth.tv_usec) / 1e6;
-                    printf("[INFO] Tempo per la verifica del certificato: %.3f secondi\n", elapsed);
-
-                    double elapsed_rules = (t_endrules.tv_sec - t_startrules.tv_sec) + (t_endrules.tv_usec - t_startrules.tv_usec) / 1e6;
-                    printf("[INFO] Tempo per l'applicazione delle regole: %.3f secondi\n", elapsed_rules);
-
-                    pthread_mutex_lock(&tmpfile_mutex);
-                    FILE *logf = fopen("ruletime.csv", "a");
-                    if (logf) {
-                        fprintf(logf, "%s,%.6f,%.6f\n", ip_copia, elapsed, elapsed_rules);
-                        fclose(logf);
-                    }
-                    pthread_mutex_unlock(&tmpfile_mutex);
-
-                    return ret;
-                }
+            // Save the signature to a file
+            char sig_path[256];
+            snprintf(sig_path, sizeof(sig_path), "/tmp/signed_nonce_%s", ip);
+            pthread_mutex_lock(&tmpfile_mutex);
+            FILE *f = fopen(sig_path, "w");
+            if (f) {
+                fwrite(ctx->data, 1, ctx->size, f);
+                fclose(f);
             }
+            pthread_mutex_unlock(&tmpfile_mutex);
 
-            const char *fail = "{ \"status\": \"invalid certificate\" }";
-            struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(fail), (void *)fail, MHD_RESPMEM_PERSISTENT);
-            int ret = MHD_queue_response(connection, MHD_HTTP_FORBIDDEN, resp);
-            MHD_destroy_response(resp);
-            free(ctx->data);
-            free(ctx);
-            *con_cls = NULL;
-            return ret;
+            // Verify the signature
+            if (verify_signature(ip)) {
+
+                DhcpEvent *event = load_event_from_file(ip);
+                if (event) {
+                char *mud_url = verify_certificate_for_ip(ip);
+            if (mud_url) {
+                // send back the verification response
+                const char *ok = "{ \"status\": \"verified\" }";
+                struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(ok), (void *)ok, MHD_RESPMEM_PERSISTENT);
+                int ret = MHD_queue_response(connection, MHD_HTTP_OK, resp);
+                MHD_destroy_response(resp);
+
+                free(ctx->data);
+                free(ctx);
+                *con_cls = NULL;
+
+                // then apply the MUD policy
+                apply_mud_policy_for_ip(event, mud_url);
+
+                free(mud_url);
+
+                //free_dhcp_event(event);
+
+                return ret;
+            } 
+            //free_dhcp_event(event);
+            } else {
+                const char *fail = "{ \"status\": \"invalid certificate\" }";
+                struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(fail), (void *)fail, MHD_RESPMEM_PERSISTENT);
+                int ret = MHD_queue_response(connection, MHD_HTTP_FORBIDDEN, resp);
+                MHD_destroy_response(resp);
+
+                free(ctx->data);
+                free(ctx);
+                *con_cls = NULL;
+                return ret;
+            }
+        }else {
+                const char *fail = "{ \"status\": \"invalid signature\" }";
+                struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(fail), (void *)fail, MHD_RESPMEM_PERSISTENT);
+                int ret = MHD_queue_response(connection, MHD_HTTP_FORBIDDEN, resp);
+                MHD_destroy_response(resp);
+
+                free(ctx->data);
+                free(ctx);
+                *con_cls = NULL;
+                return ret;
+            }
         }
-
-        const char *fail = "{ \"status\": \"invalid signature\" }";
-        struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(fail), (void *)fail, MHD_RESPMEM_PERSISTENT);
-        int ret = MHD_queue_response(connection, MHD_HTTP_FORBIDDEN, resp);
-        MHD_destroy_response(resp);
-        free(ctx->data);
-        free(ctx);
-        *con_cls = NULL;
-        return ret;
     }
 
+    // === Default fallback ===
     const char *notfound = "Not Found";
-    struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(notfound), (void *)notfound, MHD_RESPMEM_PERSISTENT);
+    struct MHD_Response *resp =
+        MHD_create_response_from_buffer(strlen(notfound), (void *)notfound, MHD_RESPMEM_PERSISTENT);
     int ret = MHD_queue_response(connection, MHD_HTTP_NOT_FOUND, resp);
     MHD_destroy_response(resp);
     return ret;
-
-bad_request:
-    {
-        const char *fail = "{ \"status\": \"bad request\" }";
-        struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(fail), (void *)fail, MHD_RESPMEM_PERSISTENT);
-        int ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, resp);
-        MHD_destroy_response(resp);
-
-        if (*con_cls) {
-            PostContext *ctx = *con_cls;
-            free(ctx->data);
-            free(ctx);
-            *con_cls = NULL;
-        }
-        return ret;
-    }
 }
 
 
