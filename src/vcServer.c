@@ -19,8 +19,7 @@
 #include <openssl/evp.h>
 #include <sys/time.h>
 #include <curl/curl.h>
-
-
+#include <dirent.h>
 #include "dhcp_event.h"
 #include "mud_manager.h"
 
@@ -31,73 +30,14 @@ pthread_mutex_t iptables_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 
-// Struttura per gestire i dati POST
+// Structure to handle POST data
 typedef struct {
     char *data;
     size_t size;
 } PostContext;
 
-#include <dirent.h>
 
-typedef struct {
-    char filename[128];
-    volatile bool *running;
-} MonitorArgs;
-
-void *monitor_usage(void *arg) {
-    MonitorArgs *args = (MonitorArgs *)arg;
-    pid_t pid = getpid();
-    char cmd[128];
-    snprintf(cmd, sizeof(cmd), "/proc/%d/stat", pid);
-
-    FILE *log = fopen(args->filename, "w");
-    if (!log) {
-        perror("Errore apertura file monitor");
-        return NULL;
-    }
-
-    fprintf(log, "timestamp_ms,cpu_time_s,ram_kb\n");
-    fflush(log);
-
-    while (*(args->running)) {
-        FILE *f = fopen(cmd, "r");
-        if (f) {
-            long unsigned utime, stime;
-            char comm[256], state;
-            int ppid, pgrp, session, tty_nr, tpgid;
-            unsigned flags;
-            long cutime, cstime, priority, nice, num_threads, itrealvalue;
-            unsigned long vsize;
-            long rss;
-            unsigned long starttime;
-
-            fscanf(f, "%*d %s %c %d %d %d %d %d %u "
-                   "%*u %*u %*u %*u %lu %lu %ld %ld %ld %ld %ld %ld "
-                   "%*ld %*llu %lu %ld",
-                   comm, &state, &ppid, &pgrp, &session, &tty_nr, &tpgid, &flags,
-                   &utime, &stime, &cutime, &cstime, &priority, &nice, &num_threads,
-                   &itrealvalue, &starttime, &vsize, &rss);
-            fclose(f);
-
-            double cpu_time = (utime + stime) / (double) sysconf(_SC_CLK_TCK);
-            double mem_kb = rss * (sysconf(_SC_PAGE_SIZE) / 1024.0);
-
-            struct timeval tv;
-            gettimeofday(&tv, NULL);
-            long long ts_ms = (tv.tv_sec * 1000LL) + (tv.tv_usec / 1000);
-
-            fprintf(log, "%lld,%.3f,%.2f\n", ts_ms, cpu_time, mem_kb);
-            fflush(log);
-        }
-
-        usleep(1000); // sleep for 10 ms
-    }
-
-    fclose(log);
-    return NULL;
-}
-
-// Elimina tutti i file temporanei relativi ai VC
+// Eliminates all temporary files used by VC
 void clear_all_temp_vc_state() {
     pthread_mutex_lock(&file_mutex);
     const char *tmp_dir = "/tmp";
@@ -122,7 +62,7 @@ void clear_all_temp_vc_state() {
 }
 
 
-// Blocca traffico IP eccetto OSMUD
+// Blocks all traffic from a device except to OSMUD server
 void block_device_traffic_except_osmud(const char *ip) {
 
     char cmd[512];
@@ -134,18 +74,18 @@ void block_device_traffic_except_osmud(const char *ip) {
     printf("Blocked all traffic from %s except to OSMUD server.\n", ip);
 }
 
-// Sblocca traffico
+// unblocks traffic for a specific IP
 void unblock_device_traffic(const char *ip) {
     char cmd[256];
     int i;
 
-    // Rimuove tutte le DROP da MUD_CHAIN
+    // Remove all DROP rules from MUD_CHAIN
     for (i = 0; i < 10; i++) {
         snprintf(cmd, sizeof(cmd), "iptables -D MUD_CHAIN -s %s -j DROP 2>/dev/null", ip);
-        if (system(cmd) != 0) break;  // termina quando non trova più la regola
+        if (system(cmd) != 0) break;  // ends when no more rules found
     }
 
-    // Rimuove tutte le DROP da FORWARD
+    // Remove all DROP rules from FORWARD
     for (i = 0; i < 10; i++) {
         snprintf(cmd, sizeof(cmd), "iptables -D FORWARD -s %s -j DROP 2>/dev/null", ip);
         if (system(cmd) != 0) break;
@@ -153,7 +93,7 @@ void unblock_device_traffic(const char *ip) {
     printf("Unblocked traffic for %s (MUD_CHAIN and FORWARD)\n", ip);
 }
 
-// Legge un file in memoria
+// Reads a file into memory
 static char* read_file(const char *path) {
     pthread_mutex_lock(&file_mutex);
     FILE *f = fopen(path, "r");
@@ -172,7 +112,7 @@ static char* read_file(const char *path) {
     return buf;
 }
 
-// Carica evento DHCP da file
+// loads a DHCP event from file
 static DhcpEvent *load_event_from_file(const char *ip) {
      pthread_mutex_lock(&file_mutex);
     char path[256];
@@ -212,21 +152,21 @@ char *encode_verify_did_input(const char *did) {
 
     size_t did_len = strlen(did);
     char length_hex[65];
-    snprintf(length_hex, sizeof length_hex, "%064lx", did_len);  // lunghezza stringa in hex
+    snprintf(length_hex, sizeof length_hex, "%064lx", did_len);  // lenght of string in hex
 
-    // Codifica stringa in hex
+    // encodes string to hex
     char did_hex[1024] = {0};
     for (size_t i = 0; i < did_len; i++) {
         snprintf(did_hex + i * 2, 3, "%02x", (unsigned char)did[i]);
     }
 
-    // Padding: riempi fino a multiplo di 32 byte
+    // Paffing: add 0x00 to make it 32 bytes aligned
     size_t pad_len = (32 - (did_len % 32)) % 32;
     for (size_t i = 0; i < pad_len; i++) {
         strcat(did_hex, "00");
     }
 
-    // Costruzione finale
+    // final encoding
     char *encoded = malloc(1024);
     snprintf(encoded, 1024, "0x%s%s%s%s", selector, offset, length_hex, did_hex);
 
@@ -242,7 +182,7 @@ size_t write_callback(void *ptr, size_t size, size_t nmemb, void *userdata) {
 
 int call_verify_did_on_ganache(const char *contract_addr, const char *did) {
     if (!contract_addr || !did) {
-        fprintf(stderr, "❌ ERRORE: argomenti nulli\n");
+        fprintf(stderr, " Error: no arguments\n");
         return -1;
     }
 
@@ -251,17 +191,17 @@ int call_verify_did_on_ganache(const char *contract_addr, const char *did) {
     printf("   did: %s\n", did);
     CURL *curl = curl_easy_init();
     if (!curl) {
-        fprintf(stderr, "❌ curl_easy_init() ha restituito NULL!\n");
+        fprintf(stderr, " curl_easy_init() ha restituito NULL!\n");
         return -1;
     }
 
     char *data_input = encode_verify_did_input(did);
 
     if (!data_input) {
-        fprintf(stderr, "❌ encode_verify_did_input ha restituito NULL\n");
+        fprintf(stderr, " encode_verify_did_input returned NULL\n");
         return -1;
     }
-    printf("🔢 data_input: %s\n", data_input);
+    printf("data_input: %s\n", data_input);
 
     char json[2048];
     snprintf(json, sizeof json,
@@ -294,26 +234,26 @@ int call_verify_did_on_ganache(const char *contract_addr, const char *did) {
         fprintf(stderr, "CURL failed\n");
         return -1;
     }
-    printf("📥 Risposta da Ganache: %s\n", response);
+    printf("Answer from Ganache: %s\n", response);
 
-    // Cerca il risultato: "result":"0x01" o "0x00"
+    // Find the "result" field in the JSON response
     struct json_object *resp_obj = json_tokener_parse(response);
     if (!resp_obj) {
-        fprintf(stderr, " Errore nel parsing della risposta JSON\n");
+        fprintf(stderr, " Error during the parsing\n");
         return -1;
     }
 
     struct json_object *result_obj;
     if (!json_object_object_get_ex(resp_obj, "result", &result_obj)) {
-        fprintf(stderr, " Campo 'result' mancante nella risposta JSON\n");
+        fprintf(stderr, " Missing field 'result' in the json answer\n");
         json_object_put(resp_obj);
         return -1;
     }
 
     const char *result_hex = json_object_get_string(result_obj);
-    printf("🔍 Risultato decodificato: %s\n", result_hex);
+    printf("decodified result: %s\n", result_hex);
 
-    // Confronta se termina in '1'
+    // Compare result with "0x01" or "0x00"
     int is_true = (strcmp(result_hex, "0x1") == 0 ||
                 strcmp(result_hex + strlen(result_hex) - 1, "1") == 0);
 
@@ -357,9 +297,8 @@ char *base64url_decode(const char *input, size_t len) {
     return buffer;
 }
 
-bool verify_vp_jwt(const char *vp_jwt, const char *expected_challenge, double *elapsed_ganache_out) {
+bool verify_vp_jwt(const char *vp_jwt, const char *expected_challenge) {
     char vp_options[256];
-    struct timeval t_startganache, t_endganache;
 
 
     printf("Verifying VP JWT: %s\n", vp_jwt);
@@ -412,7 +351,7 @@ bool verify_vp_jwt(const char *vp_jwt, const char *expected_challenge, double *e
         free(vp_copy);
         return;
     }
-    *dot2 = '\0'; // Termina payload base64
+    *dot2 = '\0'; // end of base64 payload
     char *vp_payload_json = base64url_decode(dot1 + 1, strlen(dot1 + 1));
     free(vp_copy);
     if (!vp_payload_json) {
@@ -427,7 +366,7 @@ bool verify_vp_jwt(const char *vp_jwt, const char *expected_challenge, double *e
         return false;
     }
 
-    // === Estrai issuer dalla VC contenuta
+    // extract the VC JWT (assumed to be unique)
     struct json_object *vp_field;
     if (!json_object_object_get_ex(vp_obj, "vp", &vp_field)) {
         fprintf(stderr, "Missing 'vp' field in VP payload\n");
@@ -447,21 +386,21 @@ bool verify_vp_jwt(const char *vp_jwt, const char *expected_challenge, double *e
     if (json_object_get_type(vc_array) == json_type_array && json_object_array_length(vc_array) > 0) {
         vc_jwt = json_object_get_string(json_object_array_get_idx(vc_array, 0));
     } else if (json_object_get_type(vc_array) == json_type_string) {
-        // In alcuni casi verifiableCredential è una singola stringa JWT
+        // sometimes verifiableCredential is a single string
         vc_jwt = json_object_get_string(vc_array);
     } else {
         fprintf(stderr, " Unexpected verifiableCredential format (not array or string)\n");
         json_object_put(vp_obj);
         return false;
     }
-    json_object_put(vp_obj); // libera memoria VP
+    json_object_put(vp_obj); //free memory VP
 
     if (!vc_jwt) {
         fprintf(stderr, "Failed to extract VC JWT\n");
         return;
     }
 
-    // === 3. Estrai payload VC JWT ===
+    // extract payload from VC JWT
     char *vc_copy = strdup(vc_jwt);
     char *vcdot1 = strchr(vc_copy, '.');
     if (!vcdot1) {
@@ -490,7 +429,7 @@ bool verify_vp_jwt(const char *vp_jwt, const char *expected_challenge, double *e
         return;
     }
 
-    // === 4. Estrai campo "vc" interno ===
+    // extract "vc" field from VC payload
     struct json_object *vc_obj;
     if (!json_object_object_get_ex(vc_payload_obj, "vc", &vc_obj)) {
         fprintf(stderr, "Missing 'vc' field in VC payload\n");
@@ -498,7 +437,7 @@ bool verify_vp_jwt(const char *vp_jwt, const char *expected_challenge, double *e
         return;
     }
 
-    // === 5. Estrai mudURL ===
+    // extract issuer from VC
     struct json_object *issuer_obj;
     if (!json_object_object_get_ex(vc_obj, "issuer", &issuer_obj)) {
         fprintf(stderr, "Missing issuer in VC\n");
@@ -509,32 +448,19 @@ bool verify_vp_jwt(const char *vp_jwt, const char *expected_challenge, double *e
     const char *issuer_did = json_object_get_string(issuer_obj);
 
 
-    printf(" Issuer estratto: %s\n", issuer_did);
-
-    gettimeofday(&t_startganache, NULL);
-    // === Verifica DID su contratto Ethereum
+    // verify issuer DID
     int trusted = call_verify_did_on_ganache(DIDRESOLVER_CONTRACT_ADDRESS, issuer_did);
     if (trusted != 1) {
-        fprintf(stderr, " Issuer non è autorizzato nel contratto\n");
+        fprintf(stderr, " Issuer not authorized from the contract\n");
         return false;
     }
-    gettimeofday(&t_endganache, NULL);
-
-    double elapsed_ganache = 
-    (t_endganache.tv_sec - t_startganache.tv_sec) * 1000.0 +
-    (t_endganache.tv_usec - t_startganache.tv_usec) / 1000.0;
-
-    printf(" Verifica DID su contratto Ethereum completata in %.2f millisecondi\n", elapsed_ganache);
-
-    *elapsed_ganache_out = elapsed_ganache / 1000.0; // Converti in secondi
-
-    printf(" Issuer è autorizzato nel contratto\n");
+    printf(" Issuer is authorized from the contract\n");
     return true;
 }
 
 
 void process_verified_vp_for_ip(const char *ip, const char *vp_jwt) {
-    // === 1. Estrai payload della VP JWT ===
+    // extract issuer from VP JWT
     char *vp_copy = strdup(vp_jwt);
     char *dot1 = strchr(vp_copy, '.');
     if (!dot1) {
@@ -548,7 +474,7 @@ void process_verified_vp_for_ip(const char *ip, const char *vp_jwt) {
         free(vp_copy);
         return;
     }
-    *dot2 = '\0'; // Termina payload base64
+    *dot2 = '\0'; // end of base64 payload
     char *vp_payload_json = base64url_decode(dot1 + 1, strlen(dot1 + 1));
     free(vp_copy);
     if (!vp_payload_json) {
@@ -563,7 +489,7 @@ void process_verified_vp_for_ip(const char *ip, const char *vp_jwt) {
         return;
     }
 
-    // === 2. Estrai la VC JWT (assunta unica) ===
+    // extract issuer from VC contained
     struct json_object *vp_field;
     if (!json_object_object_get_ex(vp_obj, "vp", &vp_field)) {
         fprintf(stderr, "Missing 'vp' field in VP payload\n");
@@ -589,14 +515,14 @@ void process_verified_vp_for_ip(const char *ip, const char *vp_jwt) {
         return;
     }
 
-    json_object_put(vp_obj); // libera memoria VP
+    json_object_put(vp_obj); // free memory VP
 
     if (!vc_jwt) {
         fprintf(stderr, "Failed to extract VC JWT\n");
         return;
     }
 
-    // === 3. Estrai payload VC JWT ===
+    // extract payload from VC JWT
     char *vc_copy = strdup(vc_jwt);
     char *vcdot1 = strchr(vc_copy, '.');
     if (!vcdot1) {
@@ -625,7 +551,7 @@ void process_verified_vp_for_ip(const char *ip, const char *vp_jwt) {
         return;
     }
 
-    // === 4. Estrai campo "vc" interno ===
+    // extract "vc" field from VC payload
     struct json_object *vc_obj;
     if (!json_object_object_get_ex(vc_payload_obj, "vc", &vc_obj)) {
         fprintf(stderr, "Missing 'vc' field in VC payload\n");
@@ -633,7 +559,7 @@ void process_verified_vp_for_ip(const char *ip, const char *vp_jwt) {
         return;
     }
 
-    // === 5. Estrai mudURL ===
+    // extract mudURL
     struct json_object *cs_obj;
     if (!json_object_object_get_ex(vc_obj, "credentialSubject", &cs_obj)) {
         fprintf(stderr, "Missing credentialSubject in VC\n");
@@ -651,7 +577,7 @@ void process_verified_vp_for_ip(const char *ip, const char *vp_jwt) {
     const char *mudurl = json_object_get_string(mudurl_obj);
     printf(" Extracted mudURL: %s\n", mudurl);
 
-    // === 6. Applica il MUD al dispositivo ===
+    // apply MUD rules
     DhcpEvent *event = load_event_from_file(ip);
     if (!event) {
         fprintf(stderr, "Missing DHCP event for IP %s\n", ip);
@@ -672,7 +598,7 @@ void process_verified_vp_for_ip(const char *ip, const char *vp_jwt) {
 
 
 
-// Genera e salva un nonce per IP
+// generate a nonce for the given IP address
 static void generate_nonce_for_ip(const char *ip, char *nonce_out, size_t size) {
     srand(time(NULL) ^ getpid());
     snprintf(nonce_out, size, "%08x%08x", rand(), rand());
@@ -687,7 +613,7 @@ static void generate_nonce_for_ip(const char *ip, char *nonce_out, size_t size) 
     //pthread_mutex_unlock(&file_mutex);
 }
 
-// Libera evento DHCP
+// free memory allocated for DhcpEvent
 void free_dhcp_event(DhcpEvent *event) {
     if (!event) return;
     free(event->date);
@@ -700,7 +626,7 @@ void free_dhcp_event(DhcpEvent *event) {
     free(event);
 }
 
-// Salva evento DHCP su file
+// Save DHCP event to file
 void save_event_to_file(const DhcpEvent *event) {
     pthread_mutex_lock(&file_mutex);
     char path[256];
@@ -718,7 +644,7 @@ void save_event_to_file(const DhcpEvent *event) {
     if (existing) {
         char buf[1024];
         if (fgets(buf, sizeof(buf), existing)) {
-            // verifica IP
+            // verify if IP already exists
             char *cp = strdup(buf), *tok = strtok(cp, "|\t\n\r");
             for (int i=1; tok && i<6; ++i) tok = strtok(NULL, "|\t\n\r");
             if (tok && strcmp(tok, event->ipAddress)==0) is_new_ip = false;
@@ -727,12 +653,12 @@ void save_event_to_file(const DhcpEvent *event) {
         fclose(existing);
     }
     if (!is_new_ip) {
-        printf("Evento per IP %s già presente, non sovrascritto.\n", event->ipAddress);
+        printf("Event for IP %s already exists, not overwritten.\n", event->ipAddress);
         return;
     }       
     
     if (is_new_ip) {
-        // Blocca traffico del device eccetto OSMUD
+        // Block device traffic except OSMUD
         block_device_traffic_except_osmud(event->ipAddress);
     }
 
@@ -740,7 +666,7 @@ void save_event_to_file(const DhcpEvent *event) {
     if (!f2) { perror("fopen event save"); return; }
     fputs(new_content, f2);
     fclose(f2);
-    printf("Evento saved for IP %s\n", event->ipAddress);
+    printf("Event saved for IP %s\n", event->ipAddress);
 
     pthread_mutex_unlock(&file_mutex);
 }
@@ -771,23 +697,12 @@ static enum MHD_Result answer_to_connection(void *cls,
 
     struct timeval t_startauth, t_endauth, t_startrules, t_endrules;
 
-    // === Recupero IP dal header HTTP oppure da socket ===
-    char ip[64] = {0};
-    const char *ip_header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "X-Forwarded-For");
-    if (!ip_header)
-        ip_header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "X-Real-IP");
+    const union MHD_ConnectionInfo *ci = MHD_get_connection_info(connection, MHD_CONNECTION_INFO_CLIENT_ADDRESS);
+    struct sockaddr_in *addr = (struct sockaddr_in*)ci->client_addr;
+    char ip[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &addr->sin_addr, ip, sizeof(ip));
 
-    if (ip_header && strlen(ip_header) < sizeof(ip)) {
-        strncpy(ip, ip_header, sizeof(ip) - 1);
-        printf("[INFO] IP from header: %s\n", ip);
-    } else {
-        const union MHD_ConnectionInfo *ci = MHD_get_connection_info(connection, MHD_CONNECTION_INFO_CLIENT_ADDRESS);
-        struct sockaddr_in *addr = (struct sockaddr_in*)ci->client_addr;
-        inet_ntop(AF_INET, &addr->sin_addr, ip, sizeof(ip));
-        printf("[INFO] IP from socket: %s\n", ip);
-    }
-
-    // === 1) CHALLENGE REQUEST ===
+    // Challenge request
     if (strcmp(url, "/challenge") == 0 && strcmp(method, "GET") == 0) {
         char nonce[64];
         generate_nonce_for_ip(ip, nonce, sizeof(nonce));
@@ -801,9 +716,8 @@ static enum MHD_Result answer_to_connection(void *cls,
         return ret;
     }
 
-    // === 2) SUBMIT VP ===
+    // submit_vp request
     if (strcmp(url, "/submit_vp") == 0 && strcmp(method, "POST") == 0) {
-        printf("[INFO] Ricevuta POST /submit_vp da IP %s\n", ip);
         char path_nonce[256];
         snprintf(path_nonce, sizeof(path_nonce), "/tmp/nonce_%s", ip);
         char *expected_nonce = read_file(path_nonce);
@@ -815,27 +729,10 @@ static enum MHD_Result answer_to_connection(void *cls,
             free(ctx->data); free(ctx); *con_cls = NULL;
             return ret;
         }
-        
-        double elapsed_ganache = 0.0;
 
-        pthread_t monitor_thread;
-        volatile bool monitor_running = true;
-        MonitorArgs args;
 
-        // Crea nome file CSV per questa connessione
-        snprintf(args.filename, sizeof(args.filename), "monitor_%s.csv", ip);
-        args.running = &monitor_running;
+        bool ok = verify_vp_jwt(ctx->data, expected_nonce); 
 
-        // Avvia thread di monitoraggio
-        pthread_create(&monitor_thread, NULL, monitor_usage, &args);
-
-        gettimeofday(&t_startauth, NULL);
-
-        bool ok = verify_vp_jwt(ctx->data, expected_nonce, &elapsed_ganache);
-
-        gettimeofday(&t_endauth, NULL);
-        monitor_running = false;
-        pthread_join(monitor_thread, NULL);
         free(expected_nonce);
 
         const char *msg = ok ? "{ \"status\":\"verified\" }" : "{ \"status\":\"invalid\" }";
@@ -844,32 +741,9 @@ static enum MHD_Result answer_to_connection(void *cls,
         MHD_destroy_response(resp);
 
         if (ok) {
-            gettimeofday(&t_startrules, NULL);
+            // Process the verified VP
             process_verified_vp_for_ip(ip, ctx->data);  
-            gettimeofday(&t_endrules, NULL);
         }
-
-        double elapsed = (t_endauth.tv_sec - t_startauth.tv_sec) + 
-                         (t_endauth.tv_usec - t_startauth.tv_usec) / 1e6;
-        printf("[INFO] Total authentication time: %.3f seconds\n", elapsed);
-
-        
-        double elapsed_rules = (t_endrules.tv_sec - t_startrules.tv_sec) +
-                                (t_endrules.tv_usec - t_startrules.tv_usec) / 1e6;
-        printf("[INFO] Time for rule application: %.3f seconds\n", elapsed_rules);
-
-        double elapsed_ver = elapsed-elapsed_ganache;
-        
-
-        // Scrivi su CSV
-        FILE *logf = fopen("ruletime10.csv", "a");
-        if (logf) {
-            fprintf(logf, "%s,%.6f,%.6f,%.6f,%.6f\n", ip, elapsed, elapsed_ver, elapsed_ganache, elapsed_rules);
-            fclose(logf);
-        } else {
-            fprintf(stderr, "⚠️  Impossibile scrivere su ruletime.csv\n");
-        }
-
         free(ctx->data); free(ctx); *con_cls = NULL;
         return ret;
     }
@@ -884,7 +758,8 @@ static enum MHD_Result answer_to_connection(void *cls,
 }
 
 
-// === Server thread entrypoint ===
+
+// Server thread entrypoint 
 void *vc_server_thread(void *arg) {
     printf("Starting VC HTTP server on port %d (/challenge, /submit_vp)\n", VC_HTTP_PORT);
      clear_all_temp_vc_state();
@@ -906,7 +781,7 @@ void *vc_server_thread(void *arg) {
     return NULL;
 }
 
-// === Launch server at startup ===
+// Launch server at startup
 void start_vc_server_async() {
     mkdir("/var/state/osmud/certificates",0755);
     pthread_t thr;
